@@ -133,6 +133,26 @@ export function findProfanity(content, words) {
       if (match) return match[0];
     }
   }
+  // Alt alta bölünmüş yazım: "Oros↵Pu↵Ço↵Cı" → satırlar birleşip ayrıca denetlenir.
+  const lines = content.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length > 1) return findJoined(lines, words);
+  return null;
+}
+
+/**
+ * Parçalara bölünmüş yazım (alt alta satırlar ya da art arda kısa mesajlar): parçalar boşluksuz birleştirilip yalnızca
+ * kelime listesiyle (tam kelime ve kelime başı) denetlenir. Kelime içinde arayan regex'ler burada kullanılmaz: masum
+ * parçalar birleşince yanlışlıkla eşleşebilir ("tam" + "çık").
+ */
+export function findJoined(parts, words) {
+  // Parçaların hepsi en az 4 harfli gerçek kelimelerse birleştirilmez: her biri zaten tek başına denetlendi ve masum
+  // iki kelime birleşince küfür gibi görünebilir ("şeref" + "sizin"). Bölerek yazan kısa parça kullanır ("Pu", "Cı").
+  const letterCounts = parts.map((part) => normalize(String(part ?? '')).replace(/[^\p{L}]+/gu, '').length);
+  if (letterCounts.every((n) => n >= 4)) return null;
+  const joined = normalize(parts.join('').replace(/[^\p{L}\p{N}@$€!]+/gu, ''));
+  if (joined.length < 2) return null;
+  if (words.exact.has(joined)) return joined;
+  if (words.prefixes.some((prefix) => joined.startsWith(prefix))) return joined;
   return null;
 }
 

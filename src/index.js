@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';
 import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits} from 'discord.js';
-import {findLink, findProfanity, loadWords} from './filters.js';
+import {findJoined, findLink, findProfanity, loadWords} from './filters.js';
 import {createStrikes} from './ihlaller.js';
 
 // Botun yazdığı bütün metinler ve susturma süresi src/mesajlar.json'da; düzenlemek için yalnızca o dosya.
@@ -155,6 +155,41 @@ function check(content) {
   return null;
 }
 
+// Art arda kısa mesajlarla bölünmüş yazım ("Oros", "Pu", "Ço", "Cı"): kişinin aynı kanalda son FRAGMENT_MS içindeki
+// kısa mesajları birleştirilip denetlenir; küfür çıkarsa parçaların hepsi silinir.
+const FRAGMENT_MAX_CHARS = 15;
+const FRAGMENT_MS = 15_000;
+const FRAGMENT_COUNT = 10;
+const fragments = new Map();
+
+function fragmentVerdict(message) {
+  const text = (message.content ?? '').trim();
+  const key = `${message.channelId}:${message.author.id}`;
+  const now = Date.now();
+  if (!text || text.length > FRAGMENT_MAX_CHARS) {
+    fragments.delete(key);
+    return null;
+  }
+  const list = (fragments.get(key) ?? []).filter((item) => now - item.at < FRAGMENT_MS);
+  list.push({message, at: now});
+  while (list.length > FRAGMENT_COUNT) list.shift();
+  if (fragments.size > 5_000) fragments.clear();
+  fragments.set(key, list);
+  // Son 2, son 3 ... parça: küfür hangi parçadan başlarsa başlasın yakalanır.
+  for (let k = 2; k <= list.length; k++) {
+    const parts = list.slice(-k);
+    const match = findJoined(
+      parts.map((item) => item.message.content),
+      words,
+    );
+    if (match) {
+      fragments.delete(key);
+      return {kind: 'kufur', match, messages: parts.map((item) => item.message)};
+    }
+  }
+  return null;
+}
+
 const lastWarned = new Map();
 async function warn(message, kind, muted) {
   const key = `${message.channelId}:${message.author.id}`;
@@ -168,7 +203,8 @@ async function warn(message, kind, muted) {
 }
 
 async function logRemoval(message, verdict, muted) {
-  const content = (message.content ?? '').replace(/`/g, 'ˋ').slice(0, 1500);
+  const original = verdict.messages ? verdict.messages.map((m) => m.content).join('\n') : message.content;
+  const content = (original ?? '').replace(/`/g, 'ˋ').slice(0, 1500);
   const line = fill(TEXT.log?.satir, {
     ...valuesOf(message),
     tur: TEXT.log?.tur?.[verdict.kind] ?? verdict.kind,
@@ -177,11 +213,15 @@ async function logRemoval(message, verdict, muted) {
   await sendLog(message.client, `${line}\n\`\`\`\n${content}\n\`\`\``);
 }
 
-async function inspect(message) {
+async function inspect(message, {edited = false} = {}) {
   try {
     if (exempt(message)) return;
-    const verdict = check(message.content ?? '');
+    // Düzenlenen mesaj parça birleştirmeye girmez (aynı mesaj iki kez sayılmasın).
+    const verdict = check(message.content ?? '') ?? (edited ? null : fragmentVerdict(message));
     if (!verdict) return;
+    // Parçalara bölünmüş küfürde öbür parçalar da silinir.
+    const others = (verdict.messages ?? []).filter((m) => m.id !== message.id);
+    await Promise.all(others.map((m) => m.delete().catch(() => {})));
     const deleted = await message.delete().then(
       () => true,
       (error) => {
@@ -212,10 +252,10 @@ async function inspect(message) {
   }
 }
 
-client.on(Events.MessageCreate, inspect);
+client.on(Events.MessageCreate, (message) => inspect(message));
 client.on(Events.MessageUpdate, async (_old, message) => {
   if (message.partial) message = await message.fetch().catch(() => null);
-  if (message) await inspect(message);
+  if (message) await inspect(message, {edited: true});
 });
 client.once(Events.ClientReady, (ready) => console.log(`Barbeque Destek hazır: ${ready.user.username} (${ready.guilds.cache.size} sunucu).`));
 
