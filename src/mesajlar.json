@@ -3,10 +3,10 @@
   "susturmaSaniye": 60,
   "uyariSilinmeSaniye": 6,
   "ceza": {
-    "_aciklama": "ihlalSuresiSaat içinde atmaIcinIhlal kez link/küfür yazan sunucudan atılır. Atıldıktan sonra atilmaHatirlamaGun gün içinde banIcinIhlal kez daha yazan banlanır. 0 yazılırsa o ceza kapalı.",
-    "atmaIcinIhlal": 3,
+    "_aciklama": "ihlalSuresiSaat içinde atmaIcinIhlal kez link/küfür yazan sunucudan atılır. Atıldıktan sonra atilmaHatirlamaGun gün içinde banIcinIhlal kez daha yazan banlanır. 0 yazılırsa o ceza kapalı (şimdilik test için ikisi de 0; açmak için atmaIcinIhlal 3, banIcinIhlal 2 yap).",
+    "atmaIcinIhlal": 0,
     "ihlalSuresiSaat": 24,
-    "banIcinIhlal": 2,
+    "banIcinIhlal": 0,
     "atilmaHatirlamaGun": 30
   },
   "uyari": {

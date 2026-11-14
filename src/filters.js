@@ -40,9 +40,16 @@ export function parseWords(text) {
   const exact = new Set();
   const prefixes = new Set();
   const patterns = [];
+  const sentences = [];
   for (const line of text.split(/\r?\n/)) {
     const raw = line.trim();
     if (!raw || raw.startsWith('#')) continue;
+    // "cumle /.../": mesajın tamamında aranır (kelimeler yan yana gelince küfür olan ifadeler: "anana hele").
+    const sentence = /^cumle\s+\/(.+)\/$/.exec(raw);
+    if (sentence) {
+      sentences.push(new RegExp(sentence[1], 'u'));
+      continue;
+    }
     const regex = /^\/(.+)\/$/.exec(raw);
     if (regex) {
       patterns.push(new RegExp(regex[1], 'u'));
@@ -54,7 +61,31 @@ export function parseWords(text) {
     const forms = word.length > 3 ? [word, ascii(word)] : [word];
     for (const form of new Set(forms)) (prefix ? prefixes : exact).add(form);
   }
-  return {exact, prefixes: [...prefixes], patterns};
+  return {exact, prefixes: [...prefixes], patterns, sentences};
+}
+
+/**
+ * Cümle desenleri için mesaj: sadeleştirilmiş, işaretler boşluk, boşluklar teke, tek tek yazılmış harfler birleşik
+ * ("Anana, HELELELE!" → "anana helele", "a n a n a hele" → "anana hele").
+ */
+function sentenceOf(content) {
+  const tokens = normalize(content)
+    .replace(/[^\p{L}\s]+/gu, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  const out = [];
+  let letters = '';
+  for (const token of tokens) {
+    if (token.length === 1) {
+      letters += token;
+      continue;
+    }
+    if (letters) out.push(letters);
+    letters = '';
+    out.push(token);
+  }
+  if (letters) out.push(letters);
+  return out.join(' ').replace(/(\p{L})\1+/gu, '$1');
 }
 
 export function loadWords(file = WORDS_FILE) {
@@ -94,6 +125,13 @@ export function findProfanity(content, words) {
     // Regex kelimenin yazıldığı haline uygulanır (Türkçe karaktersiz haline değil: "sıkıştım" → "sikistim" olmasın);
     // Türkçe harf farkı desende [iı], [sş] gibi yazılır.
     if (words.patterns?.some((pattern) => pattern.test(candidate))) return candidate;
+  }
+  if (words.sentences?.length) {
+    const sentence = sentenceOf(content);
+    for (const pattern of words.sentences) {
+      const match = pattern.exec(sentence);
+      if (match) return match[0];
+    }
   }
   return null;
 }
