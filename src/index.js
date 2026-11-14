@@ -1,6 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits} from 'discord.js';
 import {findLink, findProfanity, loadWords} from './filters.js';
+import {createStrikes} from './ihlaller.js';
 
 // Botun yazdığı bütün metinler ve susturma süresi src/mesajlar.json'da; düzenlemek için yalnızca o dosya.
 let TEXT;
@@ -38,6 +39,14 @@ const ALLOWED = (process.env.ALLOWED_DOMAINS ?? 'micup.gg')
 const WARNING_MS = (Number(TEXT.uyariSilinmeSaniye) || 6) * 1000;
 const WARN_EVERY_MS = 10_000;
 
+const num = (value, fallback) => (Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : fallback);
+const strikes = createStrikes({
+  kickAfter: num(TEXT.ceza?.atmaIcinIhlal, 3),
+  windowHours: num(TEXT.ceza?.ihlalSuresiSaat, 24) || 24,
+  banAfter: num(TEXT.ceza?.banIcinIhlal, 2),
+  rememberKickDays: num(TEXT.ceza?.atilmaHatirlamaGun, 30) || 30,
+});
+
 const words = loadWords();
 console.log(`Küfür listesi: ${words.exact.size} kelime, ${words.prefixes.length} kök. İzinli alan adları: ${ALLOWED.join(', ') || 'yok'}.`);
 
@@ -71,13 +80,64 @@ async function mute(message, kind) {
   const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
   if (!TIMEOUT_MS || !member) return false;
   if (member.isCommunicationDisabled?.()) return true;
-  return member.timeout(TIMEOUT_MS, fill(TEXT.zamanAsimiSebebi?.[kind], {})).then(
+  return member.timeout(TIMEOUT_MS, fill(TEXT.sebep?.susturma?.[kind], {})).then(
     () => true,
     (error) => {
       console.warn(`Zaman aşımı verilemedi (${message.author.id}): ${error.message} — botun "Üyelere zaman aşımı uygula" izni olmalı ve rolü kişininkinden yüksek olmalı.`);
       return false;
     },
   );
+}
+
+const valuesOf = (message) => ({
+  kisi: `<@${message.author.id}>`,
+  ad: message.author.globalName ?? message.author.username,
+  id: message.author.id,
+  kanal: `<#${message.channelId}>`,
+  sunucu: message.guild?.name ?? '',
+  sure: DURATION,
+});
+
+/** Atmadan/banlamadan önce kişiye özelden haber; özel mesajı kapalıysa sessizce geçer. */
+const notify = (user, template, values) => user.send({content: fill(template, values), allowedMentions: {parse: []}}).catch(() => {});
+
+/** Üst üste ihlal: sunucudan atar. Atılabildiyse true. */
+async function kick(message) {
+  const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
+  if (!member) return false;
+  await notify(message.author, TEXT.ozelMesaj?.atildi, valuesOf(message));
+  return member.kick(fill(TEXT.sebep?.atma, {})).then(
+    () => true,
+    (error) => {
+      console.warn(`Sunucudan atılamadı (${message.author.id}): ${error.message} — botun "Üyeleri At" izni olmalı ve rolü kişininkinden yüksek olmalı.`);
+      return false;
+    },
+  );
+}
+
+/** Atıldıktan sonra da devam: banlar. Banlanabildiyse true. */
+async function ban(message) {
+  await notify(message.author, TEXT.ozelMesaj?.banlandi, valuesOf(message));
+  return message.guild.members.ban(message.author.id, {reason: fill(TEXT.sebep?.ban, {})}).then(
+    () => true,
+    (error) => {
+      console.warn(`Banlanamadı (${message.author.id}): ${error.message} — botun "Üyeleri Yasakla" izni olmalı ve rolü kişininkinden yüksek olmalı.`);
+      return false;
+    },
+  );
+}
+
+/** Kanalda birkaç saniye görünen duyuru. */
+async function announce(message, text) {
+  const sent = await message.channel.send({content: text, allowedMentions: {parse: []}}).catch(() => null);
+  if (sent) setTimeout(() => sent.delete().catch(() => {}), WARNING_MS).unref();
+}
+
+/** Log kanalına yazar (LOG_CHANNEL_ID yoksa hiçbir şey yapmaz). */
+async function sendLog(client, content) {
+  if (!LOG_CHANNEL_ID) return;
+  const channel = client.channels.cache.get(LOG_CHANNEL_ID) ?? (await client.channels.fetch(LOG_CHANNEL_ID).catch(() => null));
+  if (channel?.send) await channel.send({content, allowedMentions: {parse: []}}).catch(() => {});
 }
 
 /** Yetkililer (mesaj yönetme ya da yönetici) ve botlar denetlenmez. */
@@ -108,22 +168,13 @@ async function warn(message, kind, muted) {
 }
 
 async function logRemoval(message, verdict, muted) {
-  if (!LOG_CHANNEL_ID) return;
-  const channel = message.client.channels.cache.get(LOG_CHANNEL_ID) ?? (await message.client.channels.fetch(LOG_CHANNEL_ID).catch(() => null));
-  if (!channel?.send) return;
   const content = (message.content ?? '').replace(/`/g, 'ˋ').slice(0, 1500);
-  await channel
-    .send({
-      content: `${fill(TEXT.log?.satir, {
-        tur: TEXT.log?.tur?.[verdict.kind] ?? verdict.kind,
-        susturma: muted ? fill(TEXT.log?.susturma, {sure: DURATION}) : '',
-        kisi: `<@${message.author.id}>`,
-        id: message.author.id,
-        kanal: `<#${message.channelId}>`,
-      })}\n\`\`\`\n${content}\n\`\`\``,
-      allowedMentions: {parse: []},
-    })
-    .catch(() => {});
+  const line = fill(TEXT.log?.satir, {
+    ...valuesOf(message),
+    tur: TEXT.log?.tur?.[verdict.kind] ?? verdict.kind,
+    susturma: muted ? fill(TEXT.log?.susturma, {sure: DURATION}) : '',
+  });
+  await sendLog(message.client, `${line}\n\`\`\`\n${content}\n\`\`\``);
 }
 
 async function inspect(message) {
@@ -139,6 +190,20 @@ async function inspect(message) {
       },
     );
     if (!deleted) return;
+    // Ceza kademesi: üst üste ihlalde atma, atıldıktan sonra devamında ban. Yapılamazsa (izin yok) susturmaya düşer.
+    const action = strikes.record(message.guild.id, message.author.id);
+    if (action === 'ban' && (await ban(message))) {
+      strikes.banned(message.guild.id, message.author.id);
+      console.log(`Banlandı: ${message.author.username} (${message.author.id})`);
+      await Promise.all([announce(message, fill(TEXT.banlandi, valuesOf(message))), logRemoval(message, verdict, false), sendLog(message.client, fill(TEXT.log?.banlandi, valuesOf(message)))]);
+      return;
+    }
+    if (action === 'kick' && (await kick(message))) {
+      strikes.kicked(message.guild.id, message.author.id);
+      console.log(`Sunucudan atıldı: ${message.author.username} (${message.author.id})`);
+      await Promise.all([announce(message, fill(TEXT.atildi, valuesOf(message))), logRemoval(message, verdict, false), sendLog(message.client, fill(TEXT.log?.atildi, valuesOf(message)))]);
+      return;
+    }
     const muted = await mute(message, verdict.kind);
     console.log(`${verdict.kind === 'link' ? 'Link' : 'Küfür'} silindi${muted ? `, ${DURATION} zaman aşımı` : ''}: ${message.author.username} (${message.author.id}) #${message.channelId} — ${String(verdict.match).slice(0, 60)}`);
     await Promise.all([warn(message, verdict.kind, muted), logRemoval(message, verdict, muted)]);
