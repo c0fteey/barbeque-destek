@@ -1,9 +1,21 @@
+import {readFileSync} from 'node:fs';
 import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits} from 'discord.js';
 import {findLink, findProfanity, loadWords} from './filters.js';
 
+// Botun yazdığı bütün metinler ve susturma süresi src/mesajlar.json'da; düzenlemek için yalnızca o dosya.
+let TEXT;
+try {
+  TEXT = JSON.parse(readFileSync(new URL('./mesajlar.json', import.meta.url), 'utf8'));
+} catch (error) {
+  console.error(`src/mesajlar.json okunamadı (virgül ya da tırnak eksik olabilir): ${error.message}`);
+  process.exit(1);
+}
+/** "{kisi} ..." gibi yerleri doldurur. */
+const fill = (template, values) => String(template ?? '').replace(/\{(\w+)\}/g, (all, key) => (key in values ? values[key] : all));
+
 /**
  * Barbeque destek sunucusu botu (guard): link ve küfür engeli.
- * Yasak mesaj silinir, yazan 1 dakika susturulur (zaman aşımı), kanalda birkaç saniye görünen bir uyarı gider,
+ * Yasak mesaj silinir, yazan susturulur (zaman aşımı), kanalda birkaç saniye görünen bir uyarı gider,
  * LOG_CHANNEL_ID varsa kayıt düşülür.
  * Mesajı yönetme ya da yönetici yetkisi olanlara (yetkililer) ve botlara dokunulmaz. Düzenlenen mesaj da denetlenir.
  *
@@ -23,7 +35,7 @@ const ALLOWED = (process.env.ALLOWED_DOMAINS ?? 'micup.gg')
   .split(',')
   .map((d) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
   .filter(Boolean);
-const WARNING_MS = 6_000;
+const WARNING_MS = (Number(TEXT.uyariSilinmeSaniye) || 6) * 1000;
 const WARN_EVERY_MS = 10_000;
 
 const words = loadWords();
@@ -42,20 +54,24 @@ const client = new Client({
   }),
 });
 
-const REASONS = {
-  link: (id) => `<@${id}> bu sunucuda link paylaşmak yasak.`,
-  kufur: (id) => `<@${id}> lütfen küfür etme.`,
-};
-// Link ya da küfür yazan 1 dakika susturulur (zaman aşımı). Botun "Üyelere zaman aşımı uygula" izni olmalı ve rolü
-// kişinin en yüksek rolünden üstte olmalı; olmazsa yalnızca mesaj silinir.
-const TIMEOUT_MS = 60_000;
+// Link ya da küfür yazan susturulur (zaman aşımı, süre mesajlar.json'da). Botun "Üyelere zaman aşımı uygula" izni olmalı
+// ve rolü kişinin en yüksek rolünden üstte olmalı; olmazsa yalnızca mesaj silinir. 0 yazılırsa kimse susturulmaz.
+const TIMEOUT_SECONDS = Math.max(0, Number(TEXT.susturmaSaniye ?? 60) || 0);
+const TIMEOUT_MS = TIMEOUT_SECONDS * 1000;
+/** Süre metni: 60 → "1 dakika", 90 → "90 saniye", 3600 → "1 saat". */
+const DURATION =
+  TIMEOUT_SECONDS % 3600 === 0 && TIMEOUT_SECONDS >= 3600
+    ? `${TIMEOUT_SECONDS / 3600} saat`
+    : TIMEOUT_SECONDS % 60 === 0 && TIMEOUT_SECONDS >= 60
+      ? `${TIMEOUT_SECONDS / 60} dakika`
+      : `${TIMEOUT_SECONDS} saniye`;
 
 /** Kişiye zaman aşımı verir; verildiyse (ya da zaten susturulmuşsa) true. */
 async function mute(message, kind) {
   const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
-  if (!member) return false;
+  if (!TIMEOUT_MS || !member) return false;
   if (member.isCommunicationDisabled?.()) return true;
-  return member.timeout(TIMEOUT_MS, `Guard: ${kind === 'link' ? 'link' : 'küfür'}`).then(
+  return member.timeout(TIMEOUT_MS, fill(TEXT.zamanAsimiSebebi?.[kind], {})).then(
     () => true,
     (error) => {
       console.warn(`Zaman aşımı verilemedi (${message.author.id}): ${error.message} — botun "Üyelere zaman aşımı uygula" izni olmalı ve rolü kişininkinden yüksek olmalı.`);
@@ -85,7 +101,8 @@ async function warn(message, kind, muted) {
   if (Date.now() - (lastWarned.get(key) ?? 0) < WARN_EVERY_MS) return;
   lastWarned.set(key, Date.now());
   if (lastWarned.size > 5_000) lastWarned.clear();
-  const text = REASONS[kind](message.author.id) + (muted ? ' 1 dakika susturuldun.' : '');
+  const values = {kisi: `<@${message.author.id}>`, id: message.author.id, kanal: `<#${message.channelId}>`, sure: DURATION};
+  const text = fill(TEXT.uyari?.[kind], values) + (muted ? fill(TEXT.susturuldu, values) : '');
   const sent = await message.channel.send({content: text, allowedMentions: {users: [message.author.id]}}).catch(() => null);
   if (sent) setTimeout(() => sent.delete().catch(() => {}), WARNING_MS).unref();
 }
@@ -97,7 +114,13 @@ async function logRemoval(message, verdict, muted) {
   const content = (message.content ?? '').replace(/`/g, 'ˋ').slice(0, 1500);
   await channel
     .send({
-      content: `🛡️ **${verdict.kind === 'link' ? 'Link' : 'Küfür'}** silindi${muted ? ' · 1 dk zaman aşımı' : ''} · <@${message.author.id}> (${message.author.id}) · <#${message.channelId}>\n\`\`\`\n${content}\n\`\`\``,
+      content: `${fill(TEXT.log?.satir, {
+        tur: TEXT.log?.tur?.[verdict.kind] ?? verdict.kind,
+        susturma: muted ? fill(TEXT.log?.susturma, {sure: DURATION}) : '',
+        kisi: `<@${message.author.id}>`,
+        id: message.author.id,
+        kanal: `<#${message.channelId}>`,
+      })}\n\`\`\`\n${content}\n\`\`\``,
       allowedMentions: {parse: []},
     })
     .catch(() => {});
@@ -117,7 +140,7 @@ async function inspect(message) {
     );
     if (!deleted) return;
     const muted = await mute(message, verdict.kind);
-    console.log(`${verdict.kind === 'link' ? 'Link' : 'Küfür'} silindi${muted ? ', 1 dk zaman aşımı' : ''}: ${message.author.username} (${message.author.id}) #${message.channelId} — ${String(verdict.match).slice(0, 60)}`);
+    console.log(`${verdict.kind === 'link' ? 'Link' : 'Küfür'} silindi${muted ? `, ${DURATION} zaman aşımı` : ''}: ${message.author.username} (${message.author.id}) #${message.channelId} — ${String(verdict.match).slice(0, 60)}`);
     await Promise.all([warn(message, verdict.kind, muted), logRemoval(message, verdict, muted)]);
   } catch (error) {
     console.error('Mesaj denetlenemedi:', error);

@@ -1,0 +1,22 @@
+{
+  "_aciklama": "Botun yazdığı metinler. Süslü parantezli yerler doldurulur: {kisi} = yazanın etiketi, {id} = yazanın ID'si, {kanal} = kanal etiketi, {sure} = susturma süresi (susturmaSaniye'den, ör. 1 dakika), {tur} = Link ya da Küfür, {susturma} = log satırındaki susturma eki. Değiştirip push etmen yeterli; ajan botu günceller.",
+  "susturmaSaniye": 60,
+  "uyariSilinmeSaniye": 6,
+  "uyari": {
+    "link": "{kisi} bu sunucuda link paylaşmak yasak.",
+    "kufur": "{kisi} lütfen küfür etme."
+  },
+  "susturuldu": " {sure} susturuldun.",
+  "zamanAsimiSebebi": {
+    "link": "Guard: link",
+    "kufur": "Guard: küfür"
+  },
+  "log": {
+    "satir": "🛡️ **{tur}** silindi{susturma} · {kisi} ({id}) · {kanal}",
+    "susturma": " · {sure} zaman aşımı",
+    "tur": {
+      "link": "Link",
+      "kufur": "Küfür"
+    }
+  }
+}

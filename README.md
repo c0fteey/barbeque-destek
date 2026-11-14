@@ -3,6 +3,7 @@
 Barbeque'nin Micup destek sunucusu botu. Şimdilik **guard**: link ve küfür engeli.
 
 - Yasak mesaj silinir, yazan **1 dakika susturulur** (zaman aşımı), kanalda 6 sn görünen bir uyarı gider, log kanalı ayarlıysa kayıt düşülür.
+- **Metinler ve süreler `src/mesajlar.json`'da**: uyarılar, susturma eki, log satırı, susturma süresi (`susturmaSaniye`, 0 = susturma yok), uyarının kaç saniye sonra silineceği.
 - Yetkililere (Mesajları Yönet / Yönetici) ve botlara dokunulmaz. Düzenlenen mesajlar da denetlenir.
 - Link: http(s), www., çıplak alan adı (site.com), davetler (micup.gg/invite, discord.gg...). İzinli alan adları ayarlanabilir (vars. micup.gg); davetler her zaman yasak.
 - Küfür: `src/kufur.txt`. `kelime*` kelime başı olarak eşleşir, yıldızsız kelime yalnızca tamamı. Harf tekrarı (amkkk), araya işaret (s.i.k), boşluklu harf (s i k), rakamla yazma (5ik) ve Türkçe karaktersiz yazım yakalanır.
