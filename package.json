@@ -1,0 +1,16 @@
+{
+  "name": "barbeque-destek",
+  "version": "0.1.0",
+  "description": "Barbeque destek sunucusu botu: link ve küfür engeli (guard)",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.28.1"
+  }
+}

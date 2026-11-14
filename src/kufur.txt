@@ -1,0 +1,89 @@
+# Guard küfür listesi. Satır başına bir kelime; # ile başlayan satır yorumdur.
+# Sonu * ise kelime başı olarak eşleşir (orospu* → orospuçocuğu). Yıldızsızsa yalnızca kelimenin tamamı eşleşir.
+# Kısa kökleri yıldızsız yaz: "sik*" şikayet/sikke'yi, "göt*" götür'ü, "am*" ama'yı da silerdi.
+# Türkçe karaktersiz hali (amcık → amcik) ve harf tekrarı (amkkk) kendiliğinden yakalanır.
+
+# --- amk ailesi ---
+amk
+amq
+aq
+amına*
+amina*
+amınako*
+aminako*
+amcık*
+amcik*
+amcuk*
+amınoğlu*
+aminoglu*
+
+# --- s*k ailesi (kısa kök yıldızsız) ---
+sik
+sikik
+sikim
+sikiyim
+sikeyim
+sikerim
+siker
+sikem
+sikmek
+siktir*
+siktiğim*
+siktigim*
+sikiş*
+sikis*
+sikici*
+sikik*
+sikko
+sikerler
+sikeceğim
+sikecegim
+yarrak*
+yarak
+yarağ*
+yarram*
+taşak*
+tasak*
+daşşak*
+
+# --- hakaret ---
+orospu*
+orosbu*
+oruspu*
+kahpe*
+kaltak*
+pezevenk*
+pezo
+gavat*
+yavşak*
+yavsak*
+ibne*
+puşt*
+pust
+şerefsiz*
+serefsiz*
+piç
+piçler*
+piçlik*
+göt
+götveren*
+götoş*
+götlek*
+dalyarak*
+
+# --- İngilizce ---
+fuck*
+fck
+fuk
+motherfuck*
+shit*
+bitch*
+bastard*
+asshole*
+cunt*
+whore*
+slut*
+nigga*
+nigger*
+faggot*
+retard*
