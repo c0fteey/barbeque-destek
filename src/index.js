@@ -24,6 +24,8 @@ const fill = (template, values) => String(template ?? '').replace(/\{(\w+)\}/g, 
  *   MICUP_TOKEN       destek botunun token'ı
  *   LOG_CHANNEL_ID    silinen mesajların yazılacağı kanal (isteğe bağlı)
  *   ALLOWED_DOMAINS   izinli alan adları, virgülle (vars. micup.gg); davet linkleri her zaman yasak
+ *   WHITELIST_LINK    link denetiminden muaf kullanıcı, rol ya da kanal ID'leri, virgülle
+ *   WHITELIST_KUFUR   küfür denetiminden muaf kullanıcı, rol ya da kanal ID'leri, virgülle
  */
 
 const TOKEN = process.env.MICUP_TOKEN;
@@ -36,6 +38,9 @@ const ALLOWED = (process.env.ALLOWED_DOMAINS ?? 'micup.gg')
   .split(',')
   .map((d) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
   .filter(Boolean);
+const idSet = (value) => new Set(String(value ?? '').split(/[\s,]+/).filter((id) => /^\d{5,25}$/.test(id)));
+const WHITELIST = {link: idSet(process.env.WHITELIST_LINK), kufur: idSet(process.env.WHITELIST_KUFUR)};
+console.log(`Beyaz liste: link ${WHITELIST.link.size} ID, küfür ${WHITELIST.kufur.size} ID.`);
 const WARNING_MS = (Number(TEXT.uyariSilinmeSaniye) || 6) * 1000;
 const WARN_EVERY_MS = 10_000;
 
@@ -147,11 +152,26 @@ function exempt(message) {
   return Boolean(perms?.has(PermissionFlagsBits.ManageMessages) || perms?.has(PermissionFlagsBits.Administrator));
 }
 
-function check(content) {
-  const link = findLink(content, ALLOWED);
-  if (link) return {kind: 'link', match: link};
-  const word = findProfanity(content, words);
-  if (word) return {kind: 'kufur', match: word};
+/** Beyaz listede mi: yazanın ID'si, rollerinden biri, kanal ya da (alt başlıksa) üst kanal listedeyse muaf. */
+function whitelisted(message, kind) {
+  const list = WHITELIST[kind];
+  if (!list?.size) return false;
+  if (list.has(message.author.id) || list.has(message.channelId)) return true;
+  if (message.channel?.parentId && list.has(message.channel.parentId)) return true;
+  const roles = message.member?.roles?.cache;
+  return Boolean(roles && [...roles.keys()].some((id) => list.has(id)));
+}
+
+function check(message) {
+  const content = message.content ?? '';
+  if (!whitelisted(message, 'link')) {
+    const link = findLink(content, ALLOWED);
+    if (link) return {kind: 'link', match: link};
+  }
+  if (!whitelisted(message, 'kufur')) {
+    const word = findProfanity(content, words);
+    if (word) return {kind: 'kufur', match: word};
+  }
   return null;
 }
 
@@ -217,7 +237,7 @@ async function inspect(message, {edited = false} = {}) {
   try {
     if (exempt(message)) return;
     // Düzenlenen mesaj parça birleştirmeye girmez (aynı mesaj iki kez sayılmasın).
-    const verdict = check(message.content ?? '') ?? (edited ? null : fragmentVerdict(message));
+    const verdict = check(message) ?? (edited || whitelisted(message, 'kufur') ? null : fragmentVerdict(message));
     if (!verdict) return;
     // Parçalara bölünmüş küfürde öbür parçalar da silinir.
     const others = (verdict.messages ?? []).filter((m) => m.id !== message.id);
