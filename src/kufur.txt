@@ -2,6 +2,7 @@
 # Sonu * ise kelime başı olarak eşleşir (orospu* → orospuçocuğu). Yıldızsızsa yalnızca kelimenin tamamı eşleşir.
 # Kısa kökleri yıldızsız yaz: "sik*" şikayet/sikke'yi, "göt*" götür'ü, "am*" ama'yı da silerdi.
 # Türkçe karaktersiz hali (amcık → amcik) ve harf tekrarı (amkkk) kendiliğinden yakalanır.
+# /.../ satırı regex'tir ve kelimenin İÇİNDE de arar (yapışık yazım: senisikerim). Ayrıntı en altta.
 
 # --- amk ailesi ---
 amk
@@ -31,7 +32,6 @@ siktir*
 siktiğim*
 siktigim*
 sikiş*
-sikis*
 sikici*
 sikik*
 sikko
@@ -87,3 +87,23 @@ nigga*
 nigger*
 faggot*
 retard*
+
+# --- Regex: başka kelimeye yapışık yazılan küfürler ---
+# Kelimenin herhangi bir yerinde aranır. Kelime sadeleştirilmiş haliyle gelir: küçük harf, rakam → harf (5 → s),
+# tekrar eden harf teke (yarrak → yarak). Türkçe harf farkı için [iı] [sş] [cç] [gğ] yaz.
+# Kısa ya da masum kelimelerin içinde geçebilecek desen yazma: /yarak/ "sayarak", "kayarak"ı da silerdi.
+# "sik" ailesinde yalnızca i (ı değil): "sıkıştır", "sıkıldım" masum.
+/sik(tir|erim|eyim|iyim|ecem|ecek|eriz|ermi|tiğ|tig|ilmi)/
+/am[iı]na?k(o|a)/
+/am[iı]n[iı]sik/
+/anan[iı]sik/
+/anas[iı]n[iı]sik/
+/orospu|orosbu|oruspu/
+/am[cç][iı]k/
+/pezevenk/
+/kahpe/
+/yav[sş]ak/
+/[sş]erefsiz/
+/ibne(ler|lik|sin)/
+/fuck/
+/motherf/

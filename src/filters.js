@@ -29,20 +29,32 @@ export function normalize(text) {
 /** Türkçe karakterler olmadan ("amcık" → "amcik"). */
 export const ascii = (text) => text.replace(/[çğıöşüâîû]/g, (c) => ASCII[c]);
 
-/** Metin dosyasından {exact: Set, prefixes: []}. Her kelime hem Türkçe hem Türkçe karaktersiz haliyle eklenir. */
+/**
+ * Metin dosyasından {exact: Set, prefixes: [], patterns: [RegExp]}. Her kelime hem Türkçe hem Türkçe karaktersiz
+ * haliyle eklenir. "/.../" satırı regex'tir: kelimenin herhangi bir yerinde aranır (yapışık yazım: "senisikerim").
+ * Regex sadeleştirilmiş kelimeye uygulanır (küçük harf, rakam → harf, tekrar eden harf teke). Bu yüzden desende
+ * tekrar ya da rakam düşünmeye gerek yok: /sikerim/ "SİKKERİİM", "s1kerim"i de yakalar. Çift harfli kelimeyi tek harfle
+ * yaz (yarrak → yarak). Türkçe harf farkı için [iı], [sş], [cç], [gğ] kullan.
+ */
 export function parseWords(text) {
   const exact = new Set();
   const prefixes = new Set();
+  const patterns = [];
   for (const line of text.split(/\r?\n/)) {
     const raw = line.trim();
     if (!raw || raw.startsWith('#')) continue;
+    const regex = /^\/(.+)\/$/.exec(raw);
+    if (regex) {
+      patterns.push(new RegExp(regex[1], 'u'));
+      continue;
+    }
     const prefix = raw.endsWith('*');
     const word = normalize(prefix ? raw.slice(0, -1) : raw);
     // Kısa kelimelerin Türkçe karaktersiz hali eklenmez: "piç" → "pic" (İngilizce resim), "göt" → "got" masum.
     const forms = word.length > 3 ? [word, ascii(word)] : [word];
     for (const form of new Set(forms)) (prefix ? prefixes : exact).add(form);
   }
-  return {exact, prefixes: [...prefixes]};
+  return {exact, prefixes: [...prefixes], patterns};
 }
 
 export function loadWords(file = WORDS_FILE) {
@@ -79,6 +91,9 @@ export function findProfanity(content, words) {
   for (const candidate of candidates(content)) {
     if (words.exact.has(candidate)) return candidate;
     if (words.prefixes.some((prefix) => candidate.startsWith(prefix))) return candidate;
+    // Regex kelimenin yazıldığı haline uygulanır (Türkçe karaktersiz haline değil: "sıkıştım" → "sikistim" olmasın);
+    // Türkçe harf farkı desende [iı], [sş] gibi yazılır.
+    if (words.patterns?.some((pattern) => pattern.test(candidate))) return candidate;
   }
   return null;
 }
