@@ -103,6 +103,22 @@ nigger*
 faggot*
 retard*
 
+# --- meme: çıplak "meme" ve "memeler" internet meme'i anlamında da kullanıldığı için serbest; müstehcen kullanımdaki
+# iyelik halleri engelli. "meme"nin kendisini de engellemek istersen alttaki satırların başına "meme" ve "memeler" ekle.
+memen
+memeni
+memene
+memenin
+memesi
+memesini
+memesine
+memelerin
+memelerini
+memelerine
+memelerim
+memelerimi
+memecik*
+
 # --- İngilizce / müstehcen ---
 # Tekrar eden harf teke indiği için "boob" (→ bob) gibi isimle çakışan kısa kelimeler eklenmedi.
 oppai
