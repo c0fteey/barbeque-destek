@@ -139,9 +139,35 @@ export function findProfanity(content, words) {
       if (match) return match[0];
     }
   }
+  const censored = findCensored(content, words);
+  if (censored) return censored;
   // Alt alta bölünmüş yazım: "Oros↵Pu↵Ço↵Cı" → satırlar birleşip ayrıca denetlenir.
   const lines = content.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length > 1) return findJoined(lines, words);
+  return null;
+}
+
+/**
+ * Sansür işaretiyle yazım: "s@m", "s*kim", "a#k", "o$pu". Harflerin arasındaki * @ # $ % _ işaretleri "birkaç harf"
+ * sayılır ve kelime listesindeki kelimelerle karşılaştırılır ("s@m" → s?m → skm). Nokta sayılmaz: "a.s", "v.s.", "s.a"
+ * gibi kısaltmalar masum.
+ */
+const CENSOR = /[*@#$%_]+/u;
+function findCensored(content, words) {
+  for (const token of content.split(/\s+/)) {
+    if (!CENSOR.test(token)) continue;
+    const word = token.normalize('NFC').toLocaleLowerCase('tr').replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+    // İşaret iki harfin arasında olmalı ve en az iki harf olmalı ("@ali" etiket gibi yazımlar atlanır).
+    if (!/\p{L}[*@#$%_]+\p{L}/u.test(word) || word.replace(/[^\p{L}]/gu, '').length < 2) continue;
+    const parts = word.split(/[*@#$%_]+/u).map((part) => normalize(part).replace(/[^\p{L}]/gu, ''));
+    const source = parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\p{L}{1,4}');
+    const exact = new RegExp(`^${source}$`, 'u');
+    const start = new RegExp(`^${source}`, 'u');
+    for (const entry of words.exact) if (exact.test(entry)) return token;
+    // Kelime başı karşılaştırması için işaretten sonra en az 2 harf gerekir ("o$pu" evet, "o*o" gülen yüz hayır).
+    const loose = parts.at(-1).length >= 2;
+    for (const prefix of words.prefixes) if (exact.test(prefix) || (loose && start.test(prefix))) return token;
+  }
   return null;
 }
 
