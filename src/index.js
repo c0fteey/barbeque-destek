@@ -3,7 +3,8 @@ import {findLink, findProfanity, loadWords} from './filters.js';
 
 /**
  * Barbeque destek sunucusu botu (guard): link ve küfür engeli.
- * Yasak mesaj silinir, yazana kanalda birkaç saniye görünen bir uyarı gider, LOG_CHANNEL_ID varsa kayıt düşülür.
+ * Yasak mesaj silinir, yazan 1 dakika susturulur (zaman aşımı), kanalda birkaç saniye görünen bir uyarı gider,
+ * LOG_CHANNEL_ID varsa kayıt düşülür.
  * Mesajı yönetme ya da yönetici yetkisi olanlara (yetkililer) ve botlara dokunulmaz. Düzenlenen mesaj da denetlenir.
  *
  * Ayarlar (bbq-deploy panelinden ajan verir; elle çalıştırırken .env):
@@ -45,6 +46,23 @@ const REASONS = {
   link: (id) => `<@${id}> bu sunucuda link paylaşmak yasak.`,
   kufur: (id) => `<@${id}> lütfen küfür etme.`,
 };
+// Link ya da küfür yazan 1 dakika susturulur (zaman aşımı). Botun "Üyelere zaman aşımı uygula" izni olmalı ve rolü
+// kişinin en yüksek rolünden üstte olmalı; olmazsa yalnızca mesaj silinir.
+const TIMEOUT_MS = 60_000;
+
+/** Kişiye zaman aşımı verir; verildiyse (ya da zaten susturulmuşsa) true. */
+async function mute(message, kind) {
+  const member = message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
+  if (!member) return false;
+  if (member.isCommunicationDisabled?.()) return true;
+  return member.timeout(TIMEOUT_MS, `Guard: ${kind === 'link' ? 'link' : 'küfür'}`).then(
+    () => true,
+    (error) => {
+      console.warn(`Zaman aşımı verilemedi (${message.author.id}): ${error.message} — botun "Üyelere zaman aşımı uygula" izni olmalı ve rolü kişininkinden yüksek olmalı.`);
+      return false;
+    },
+  );
+}
 
 /** Yetkililer (mesaj yönetme ya da yönetici) ve botlar denetlenmez. */
 function exempt(message) {
@@ -62,23 +80,24 @@ function check(content) {
 }
 
 const lastWarned = new Map();
-async function warn(message, kind) {
+async function warn(message, kind, muted) {
   const key = `${message.channelId}:${message.author.id}`;
   if (Date.now() - (lastWarned.get(key) ?? 0) < WARN_EVERY_MS) return;
   lastWarned.set(key, Date.now());
   if (lastWarned.size > 5_000) lastWarned.clear();
-  const sent = await message.channel.send({content: REASONS[kind](message.author.id), allowedMentions: {users: [message.author.id]}}).catch(() => null);
+  const text = REASONS[kind](message.author.id) + (muted ? ' 1 dakika susturuldun.' : '');
+  const sent = await message.channel.send({content: text, allowedMentions: {users: [message.author.id]}}).catch(() => null);
   if (sent) setTimeout(() => sent.delete().catch(() => {}), WARNING_MS).unref();
 }
 
-async function logRemoval(message, verdict) {
+async function logRemoval(message, verdict, muted) {
   if (!LOG_CHANNEL_ID) return;
   const channel = message.client.channels.cache.get(LOG_CHANNEL_ID) ?? (await message.client.channels.fetch(LOG_CHANNEL_ID).catch(() => null));
   if (!channel?.send) return;
   const content = (message.content ?? '').replace(/`/g, 'ˋ').slice(0, 1500);
   await channel
     .send({
-      content: `🛡️ **${verdict.kind === 'link' ? 'Link' : 'Küfür'}** silindi · <@${message.author.id}> (${message.author.id}) · <#${message.channelId}>\n\`\`\`\n${content}\n\`\`\``,
+      content: `🛡️ **${verdict.kind === 'link' ? 'Link' : 'Küfür'}** silindi${muted ? ' · 1 dk zaman aşımı' : ''} · <@${message.author.id}> (${message.author.id}) · <#${message.channelId}>\n\`\`\`\n${content}\n\`\`\``,
       allowedMentions: {parse: []},
     })
     .catch(() => {});
@@ -97,8 +116,9 @@ async function inspect(message) {
       },
     );
     if (!deleted) return;
-    console.log(`${verdict.kind === 'link' ? 'Link' : 'Küfür'} silindi: ${message.author.username} (${message.author.id}) #${message.channelId} — ${String(verdict.match).slice(0, 60)}`);
-    await Promise.all([warn(message, verdict.kind), logRemoval(message, verdict)]);
+    const muted = await mute(message, verdict.kind);
+    console.log(`${verdict.kind === 'link' ? 'Link' : 'Küfür'} silindi${muted ? ', 1 dk zaman aşımı' : ''}: ${message.author.username} (${message.author.id}) #${message.channelId} — ${String(verdict.match).slice(0, 60)}`);
+    await Promise.all([warn(message, verdict.kind, muted), logRemoval(message, verdict, muted)]);
   } catch (error) {
     console.error('Mesaj denetlenemedi:', error);
   }
