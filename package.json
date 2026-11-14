@@ -8,7 +8,8 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "start": "node --env-file-if-exists=.env src/index.js"
+    "start": "node src/index.js",
+    "start:env": "node --env-file=.env src/index.js"
   },
   "dependencies": {
     "discord.js": "^14.28.1"

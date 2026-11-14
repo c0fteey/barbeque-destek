@@ -13,4 +13,4 @@ Botun sunucuda **Mesajları Yönet** izni olmalı; Micup'ta bot uygulamasında M
 
 VDS'te bbq-deploy ajanı yönetir: panelde **Destek** sayfasından token'ı gir; ajan repoyu `C:\Barbeque\destek` klasörüne çeker, kurar, başlatır, push'ta günceller, çökerse yeniden açar. Çıktıyı izlemek için `C:\Barbeque\destek-izle.cmd`.
 
-Elle: `.env.example` → `.env`, `npm ci`, `npm start`.
+Elle: `.env.example` → `.env`, `npm ci`, `npm run start:env`.

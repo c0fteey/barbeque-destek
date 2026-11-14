@@ -128,4 +128,16 @@ if (process.send) {
   process.once('disconnect', shutdown);
 }
 
-await client.login(TOKEN);
+// Giriş hataları anlaşılır yazılsın: ajan botu yeniden dener, ne yapılması gerektiği çıktıda görünsün.
+const HINTS = {
+  'Used disallowed intents':
+    'Micup bu botta mesaj içeriği yetkisine izin vermiyor. Micup > Ayarlar > Uygulamalar > destek botu > Bot bölümünde "Message Content Intent" anahtarını aç.',
+  'An invalid token was provided.': "Token geçersiz. Panelde Destek sayfasına destek botunun token'ını yeniden yapıştır.",
+};
+try {
+  await client.login(TOKEN);
+} catch (error) {
+  console.error(`Micup'a bağlanılamadı: ${HINTS[error.message] ?? error.message}`);
+  process.exit(1);
+}
+client.on(Events.Error, (error) => console.error('Bağlantı hatası:', HINTS[error.message] ?? error.message));
