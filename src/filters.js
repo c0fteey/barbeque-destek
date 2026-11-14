@@ -104,6 +104,12 @@ function candidates(content) {
   for (const token of tokens) {
     const n = normalize(token);
     for (const part of n.split(/[^\p{L}]+/u)) if (part) out.add(part);
+    // Büyük harfle yazılmış İngilizce kelime: Türkçe küçültmede "I" → "ı" olur ("OPPAI" → "oppaı"). Türkçe harf
+    // içermeyen kelimeler "I" → "i" olarak da denenir ("OPPAI" → "oppai", "SIKTIR" → "siktir"). Türkçe harfli büyük
+    // yazım ("SIKIŞTIM") denenmez, Türkçe okunur.
+    if (/I/.test(token) && !/[çğöşüÇĞÖŞÜİı]/.test(token)) {
+      for (const part of normalize(token.replace(/I/g, 'i')).split(/[^\p{L}]+/u)) if (part) out.add(part);
+    }
     const joined = n.replace(/[^\p{L}]+/gu, '');
     if (joined) out.add(joined.replace(/(\p{L})\1+/gu, '$1'));
     // Tek harfli parçalar ("s", "i", "k") birleştirilir.

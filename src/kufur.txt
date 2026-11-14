@@ -48,7 +48,6 @@ siktir*
 siktiğim*
 siktigim*
 sikiş*
-sikici*
 sikik*
 sikko
 sikerler
@@ -103,6 +102,57 @@ nigga*
 nigger*
 faggot*
 retard*
+
+# --- İngilizce / müstehcen ---
+# Tekrar eden harf teke indiği için "boob" (→ bob) gibi isimle çakışan kısa kelimeler eklenmedi.
+oppai
+hentai*
+ecchi
+ahegao
+porn
+porno
+pornos
+pornolar
+pornhub*
+p0rn
+nsfw
+onlyfans
+milf*
+dildo*
+blowjob*
+handjob*
+cumshot*
+cum
+horny
+nudes
+sex
+seggs
+segs
+boobs
+boobies
+tits
+titties
+pussy
+pussies
+dick
+dicks
+cock
+cocks
+penis
+vagina
+anal
+rape
+raped
+rapist
+wank*
+loli
+lolicon
+rule34
+stfu
+dumbass
+jackass
+hoe
+thot
 
 # --- Regex: başka kelimeye yapışık yazılan küfürler ---
 # Kelimenin herhangi bir yerinde aranır. Kelime sadeleştirilmiş haliyle gelir: küçük harf, rakam → harf (5 → s),
