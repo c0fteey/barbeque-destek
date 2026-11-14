@@ -41,6 +41,15 @@ const ALLOWED = (process.env.ALLOWED_DOMAINS ?? 'micup.gg')
 const idSet = (value) => new Set(String(value ?? '').split(/[\s,]+/).filter((id) => /^\d{5,25}$/.test(id)));
 const WHITELIST = {link: idSet(process.env.WHITELIST_LINK), kufur: idSet(process.env.WHITELIST_KUFUR)};
 console.log(`Beyaz liste: link ${WHITELIST.link.size} ID, küfür ${WHITELIST.kufur.size} ID.`);
+// Panelden ekleme/çıkarma: ajan yeni listeyi IPC ile gönderir, bot yeniden başlamadan uygular.
+if (process.send) {
+  process.on('message', (message) => {
+    if (message?.type !== 'whitelist') return;
+    WHITELIST.link = idSet((message.link ?? []).join(','));
+    WHITELIST.kufur = idSet((message.kufur ?? []).join(','));
+    console.log(`Beyaz liste güncellendi: link ${WHITELIST.link.size} ID, küfür ${WHITELIST.kufur.size} ID.`);
+  });
+}
 const WARNING_MS = (Number(TEXT.uyariSilinmeSaniye) || 6) * 1000;
 const WARN_EVERY_MS = 10_000;
 
