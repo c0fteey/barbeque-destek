@@ -66,6 +66,13 @@ export function createGuildNotices({client, text, fill}) {
     });
   }
 
-  console.log(`Sunucu bildirimi: eklendi ${channels.join ?? 'kapalı'}, çıkarıldı ${channels.leave ?? 'kapalı'}.`);
-  return {handle};
+  const describe = () => `Sunucu bildirimi: eklendi ${channels.join ?? 'kapalı'}, çıkarıldı ${channels.leave ?? 'kapalı'}.`;
+  /** Panelden değişince (ajan IPC) bot yeniden başlamadan uygulanır. */
+  function setChannels(join, leave) {
+    channels.join = String(join ?? '').trim() || null;
+    channels.leave = String(leave ?? '').trim() || null;
+    console.log(describe());
+  }
+  console.log(describe());
+  return {handle, setChannels};
 }

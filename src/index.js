@@ -36,11 +36,14 @@ if (!TOKEN) {
   console.error('MICUP_TOKEN yok. Panelde destek botunun token\'ını gir (ya da .env dosyasına yaz).');
   process.exit(1);
 }
-const LOG_CHANNEL_ID = (process.env.LOG_CHANNEL_ID || '').trim() || null;
-const ALLOWED = (process.env.ALLOWED_DOMAINS ?? 'micup.gg')
-  .split(',')
-  .map((d) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
-  .filter(Boolean);
+const parseDomains = (value) =>
+  String(value ?? 'micup.gg')
+    .split(',')
+    .map((d) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, ''))
+    .filter(Boolean);
+// Panelden değişince ajan {type: 'settings'} gönderir; bot yeniden başlamadan uygular (yalnızca token değişince yeniden başlar).
+let LOG_CHANNEL_ID = (process.env.LOG_CHANNEL_ID || '').trim() || null;
+let ALLOWED = parseDomains(process.env.ALLOWED_DOMAINS);
 const idSet = (value) => new Set(String(value ?? '').split(/[\s,]+/).filter((id) => /^\d{5,25}$/.test(id)));
 const WHITELIST = {link: idSet(process.env.WHITELIST_LINK), kufur: idSet(process.env.WHITELIST_KUFUR)};
 console.log(`Beyaz liste: link ${WHITELIST.link.size} ID, küfür ${WHITELIST.kufur.size} ID.`);
@@ -294,6 +297,12 @@ const guildNotices = createGuildNotices({client, text: TEXT, fill});
 if (process.send) {
   process.on('message', (message) => {
     if (message?.type === 'guild-event') guildNotices.handle(message).catch((error) => console.error('Sunucu bildirimi:', error));
+    if (message?.type === 'settings') {
+      LOG_CHANNEL_ID = String(message.logChannel ?? '').trim() || null;
+      ALLOWED = parseDomains(message.allowed);
+      guildNotices.setChannels(message.joinChannel, message.leaveChannel);
+      console.log(`Ayarlar güncellendi: log ${LOG_CHANNEL_ID ?? 'kapalı'}, izinli alan adları ${ALLOWED.join(', ') || 'yok'}.`);
+    }
   });
 }
 client.once(Events.ClientReady, (ready) => {
