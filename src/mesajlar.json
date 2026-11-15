@@ -37,5 +37,25 @@
       "link": "Link",
       "kufur": "Küfür"
     }
+  },
+  "sunucu": {
+    "_aciklama": "Barbeque bir sunucuya eklenince/çıkarılınca panelde seçilen kanala giden embed. {bot} = Barbeque'nin adı, {sunucu} = sunucu adı, {id} = sunucu ID'si, {uye} = üye sayısı, {sahip} = sahibin etiketi, {toplam} = Barbeque'nin şu anki sunucu sayısı. Resim ve banner varsa embed'e kendiliğinden eklenir.",
+    "join": {
+      "baslik": "📥 {bot} bir sunucuya eklendi",
+      "aciklama": "**{sunucu}** · artık **{toplam}** sunucudayız."
+    },
+    "leave": {
+      "baslik": "📤 {bot} bir sunucudan çıkarıldı",
+      "aciklama": "**{sunucu}** · **{toplam}** sunucu kaldı."
+    },
+    "alan": {
+      "ad": "Sunucu",
+      "id": "ID",
+      "uye": "Üye",
+      "sahip": "Sahip",
+      "kurulus": "Kuruluş",
+      "toplam": "Toplam sunucu",
+      "aciklama": "Açıklama"
+    }
   }
 }

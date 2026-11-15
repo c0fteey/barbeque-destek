@@ -2,6 +2,7 @@ import {readFileSync} from 'node:fs';
 import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits} from 'discord.js';
 import {findJoined, findLink, findProfanity, loadWords} from './filters.js';
 import {createStrikes} from './ihlaller.js';
+import {createGuildNotices} from './sunucuBildirimi.js';
 
 // Botun yazdığı bütün metinler ve susturma süresi src/mesajlar.json'da; düzenlemek için yalnızca o dosya.
 let TEXT;
@@ -26,6 +27,8 @@ const fill = (template, values) => String(template ?? '').replace(/\{(\w+)\}/g, 
  *   ALLOWED_DOMAINS   izinli alan adları, virgülle (vars. micup.gg); davet linkleri her zaman yasak
  *   WHITELIST_LINK    link denetiminden muaf kullanıcı, rol ya da kanal ID'leri, virgülle
  *   WHITELIST_KUFUR   küfür denetiminden muaf kullanıcı, rol ya da kanal ID'leri, virgülle
+ *   JOIN_CHANNEL_ID   Barbeque bir sunucuya eklenince yazılacak kanal (isteğe bağlı)
+ *   LEAVE_CHANNEL_ID  Barbeque bir sunucudan çıkarılınca yazılacak kanal (isteğe bağlı)
  */
 
 const TOKEN = process.env.MICUP_TOKEN;
@@ -286,7 +289,18 @@ client.on(Events.MessageUpdate, async (_old, message) => {
   if (message.partial) message = await message.fetch().catch(() => null);
   if (message) await inspect(message, {edited: true});
 });
-client.once(Events.ClientReady, (ready) => console.log(`Barbeque Destek hazır: ${ready.user.username} (${ready.guilds.cache.size} sunucu).`));
+// Barbeque sunucuya eklendi/çıkarıldı bildirimleri ajan üzerinden gelir (src/sunucuBildirimi.js).
+const guildNotices = createGuildNotices({client, text: TEXT, fill});
+if (process.send) {
+  process.on('message', (message) => {
+    if (message?.type === 'guild-event') guildNotices.handle(message).catch((error) => console.error('Sunucu bildirimi:', error));
+  });
+}
+client.once(Events.ClientReady, (ready) => {
+  console.log(`Barbeque Destek hazır: ${ready.user.username} (${ready.guilds.cache.size} sunucu).`);
+  // Ajan bekleyen sunucu bildirimlerini bunu görünce gönderir.
+  if (process.send && process.connected) process.send({type: 'ready'});
+});
 
 process.on('unhandledRejection', (error) => console.error('Yakalanmamış hata:', error));
 
