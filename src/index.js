@@ -3,6 +3,7 @@ import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits} from 'd
 import {findJoined, findLink, findProfanity, loadWords} from './filters.js';
 import {createStrikes} from './ihlaller.js';
 import {createGuildNotices} from './sunucuBildirimi.js';
+import {createMinecraft} from './minecraft/komutlar.js';
 
 // Botun yazdığı bütün metinler ve susturma süresi src/mesajlar.json'da; düzenlemek için yalnızca o dosya.
 let TEXT;
@@ -305,8 +306,12 @@ if (process.send) {
     }
   });
 }
+// Minecraft: /account ile ad kaydı, /profil ile 3D skinli kart (src/minecraft/).
+const minecraft = createMinecraft();
+client.on(Events.InteractionCreate, (interaction) => minecraft.handle(interaction));
 client.once(Events.ClientReady, (ready) => {
   console.log(`Barbeque Destek hazır: ${ready.user.username} (${ready.guilds.cache.size} sunucu).`);
+  minecraft.register(ready);
   // Ajan bekleyen sunucu bildirimlerini bunu görünce gönderir.
   if (process.send && process.connected) process.send({type: 'ready'});
 });

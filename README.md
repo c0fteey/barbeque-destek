@@ -1,6 +1,6 @@
 # Barbeque Destek
 
-Barbeque'nin Micup destek sunucusu botu. Şimdilik **guard**: link ve küfür engeli.
+Barbeque'nin Micup destek sunucusu botu: **guard** (link ve küfür engeli) ve **Minecraft profil kartı** (`/account`, `/profil`).
 
 - Yasak mesaj silinir, yazan **1 dakika susturulur** (zaman aşımı), kanalda 6 sn görünen bir uyarı gider, log kanalı ayarlıysa kayıt düşülür.
 - **Ceza kademesi:** 24 saat içinde 3. ihlalde sunucudan atılır; atıldıktan sonra 30 gün içinde 2 ihlal daha yaparsa banlanır. Atılmadan/banlanmadan önce özelden haber verilir. Kayıtlar `veri/ihlaller.json`'da (git'te değil, güncellemede silinmez).
@@ -10,6 +10,13 @@ Barbeque'nin Micup destek sunucusu botu. Şimdilik **guard**: link ve küfür en
 - Küfür: `src/kufur.txt`. `kelime*` kelime başı olarak eşleşir, yıldızsız kelime yalnızca tamamı. Harf tekrarı (amkkk), araya işaret (s.i.k), boşluklu harf (s i k), rakamla yazma (5ik) ve Türkçe karaktersiz yazım yakalanır.
 
 Botun sunucuda **Mesajları Yönet**, **Üyelere zaman aşımı uygula**, **Üyeleri At** ve **Üyeleri Yasakla** izni olmalı, rolü üyelerin rollerinden üstte olmalı; Micup'ta bot uygulamasında Message Content yetkisi açık olmalı.
+
+## Minecraft profili
+
+- **`/account nick:<ad>`**: kişi Minecraft adını kaydeder. Ad Mojang'da aranır, yoksa kaydedilmez. Kayıtlar `veri/minecraft.json`'da (git'te değil).
+- **`/profil [kullanici]`**: kayıtlı hesabın skini Mojang'dan alınır (`@magicyan/minecraft`), 1200×500 bir kart çizilip kanala atılır. Solda skin 3D, sabit pozda; sağda ad, Minecraft adı, model ve skinin yüzü.
+- 3D çizim `src/minecraft/render3d.js`'te, tarayıcı ya da ekran kartı gerekmez. Ölçüler skinview3d ile aynı olduğu için skin editöründe ayarlanan poz kartta da aynı görünür. Poz `POSE` sabitinde (editördeki **Taslak 1**). Değiştirmek için editörde **Pozu kopyala** ile aldığın metni oraya yapıştır.
+- Komutlar bot her açıldığında Micup'a kaydedilir.
 
 ## Çalıştırma
 
