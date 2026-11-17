@@ -29,6 +29,34 @@ const C = {
   moon: '#f6e3a1',
 };
 
+/**
+ * Seviyeye göre renk teması: 0-4 gri (gümüş), 5 ve üstü yeşil.
+ * rgb: yarım ton nokta, hüzme ve parıltı rengi ('r,g,b').
+ */
+const THEMES = {
+  gray: {
+    rgb: '205,210,222',
+    rays: ['rgba(205,210,222,0.16)', 'rgba(170,176,190,0.07)', 'rgba(140,146,160,0.05)'],
+    rim: ['#eef0f4', '#c3c8d2', '#8e94a1'],
+    rimLine: 'rgba(255,255,255,0.6)',
+    inside: ['#41454f', '#2b2e36'],
+    label: '#d3d7df',
+    bar: ['#8f96a3', '#eceff4'],
+    percent: '#dfe3ea',
+  },
+  green: {
+    rgb: '95,220,145',
+    rays: ['rgba(90,210,140,0.20)', 'rgba(110,160,140,0.08)', 'rgba(130,140,160,0.05)'],
+    rim: ['#8eeab4', '#4fd28a', '#2ea862'],
+    rimLine: 'rgba(210,255,228,0.55)',
+    inside: ['#20623d', '#17482d'],
+    label: '#a9eec6',
+    bar: ['#3fbf74', '#a6f0c5'],
+    percent: '#5fd68f',
+  },
+};
+export const themeFor = (level) => (level <= 4 ? THEMES.gray : THEMES.green);
+
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
@@ -216,11 +244,11 @@ const RAYS = 22;
 const onRay = (angle) => Math.floor(((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / RAYS)) % 2 === 0;
 
 /** Rozet merkezinden kartın tamamına yayılan ışık hüzmeleri: yakında yeşil, uzakta soluk gri. */
-function sunburst(ctx, x, y) {
+function sunburst(ctx, x, y, th) {
   const light = ctx.createRadialGradient(x, y, 0, x, y, 1000);
-  light.addColorStop(0, 'rgba(90,210,140,0.20)');
-  light.addColorStop(0.45, 'rgba(110,160,140,0.08)');
-  light.addColorStop(1, 'rgba(130,140,160,0.05)');
+  light.addColorStop(0, th.rays[0]);
+  light.addColorStop(0.45, th.rays[1]);
+  light.addColorStop(1, th.rays[2]);
   ctx.fillStyle = light;
   for (let k = 0; k < RAYS; k++) {
     const a = (k * Math.PI * 2) / RAYS;
@@ -236,7 +264,7 @@ function sunburst(ctx, x, y) {
  * Rozetin çevresinde yarım ton noktalar: rozete yaklaştıkça büyür ve parlar, uzaklaştıkça söner.
  * Hüzmenin üstüne düşen noktalar daha parlaktır; hüzmeler arasında da nokta vardır.
  */
-function halftone(ctx, left, top, width, height, x, y) {
+function halftone(ctx, left, top, width, height, x, y, th) {
   const STEP = 15;
   const REACH = 540;
   for (let row = 0, py = top + STEP / 2; py < top + height; row++, py += STEP)
@@ -249,7 +277,7 @@ function halftone(ctx, left, top, width, height, x, y) {
       const lit = onRay(Math.atan2(py - y, px - x));
       const alpha = (lit ? 0.62 : 0.4) * near ** 1.3;
       if (alpha < 0.03) continue;
-      ctx.fillStyle = `rgba(95,220,145,${alpha.toFixed(3)})`;
+      ctx.fillStyle = `rgba(${th.rgb},${alpha.toFixed(3)})`;
       ctx.beginPath();
       ctx.moveTo(px, py - size);
       ctx.lineTo(px + size, py);
@@ -261,7 +289,7 @@ function halftone(ctx, left, top, width, height, x, y) {
 }
 
 /** Sağdaki sekizgen seviye rozeti: gölge, açık yeşil kalın kenar, içte koyu yeşil hüzmeler ve "SEVİYE" (numara ayrıca çizilir). */
-function levelBadge(ctx, cx, cy) {
+function levelBadge(ctx, cx, cy, th) {
   // Alt gölge
   octagon(ctx, cx + 4, cy + 12, 140);
   ctx.fillStyle = 'rgba(5,10,15,0.75)';
@@ -271,15 +299,15 @@ function levelBadge(ctx, cx, cy) {
   ctx.fillStyle = '#0b0f17';
   ctx.fill();
   const rim = ctx.createLinearGradient(cx, cy - 132, cx, cy + 132);
-  rim.addColorStop(0, '#8eeab4');
-  rim.addColorStop(0.5, '#4fd28a');
-  rim.addColorStop(1, '#2ea862');
+  rim.addColorStop(0, th.rim[0]);
+  rim.addColorStop(0.5, th.rim[1]);
+  rim.addColorStop(1, th.rim[2]);
   octagon(ctx, cx, cy, 133);
   ctx.fillStyle = rim;
   ctx.fill();
   // Kenarın iç tarafında ince açık şerit
   octagon(ctx, cx, cy, 126);
-  ctx.strokeStyle = 'rgba(210,255,228,0.55)';
+  ctx.strokeStyle = th.rimLine;
   ctx.lineWidth = 3;
   ctx.stroke();
   // İç siyah çizgi
@@ -288,8 +316,8 @@ function levelBadge(ctx, cx, cy) {
   ctx.fill();
   // İç: koyu yeşil zemin ve merkezden çıkan hafif hüzmeler (nokta yok)
   const inside = ctx.createRadialGradient(cx, cy, 10, cx, cy, 110);
-  inside.addColorStop(0, '#20623d');
-  inside.addColorStop(1, '#17482d');
+  inside.addColorStop(0, th.inside[0]);
+  inside.addColorStop(1, th.inside[1]);
   octagon(ctx, cx, cy, 107);
   ctx.fillStyle = inside;
   ctx.fill();
@@ -308,7 +336,7 @@ function levelBadge(ctx, cx, cy) {
   ctx.restore();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#a9eec6';
+  ctx.fillStyle = th.label;
   ctx.font = '19px "Kart Text SemiBold"';
   ctx.fillText('SEVİYE', cx, cy - 50);
   ctx.textAlign = 'left';
@@ -324,13 +352,13 @@ function toSuffix(n) {
 }
 
 /** XP barı: üstte "1.038 / 2.400 XP" ve "Seviye 7'ye %43", altta bölmeli dolum. */
-function xpBar(ctx, x, y, w, {level, current, needed, percent}) {
+function xpBar(ctx, x, y, w, {level, current, needed, percent}, th) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = C.text;
   ctx.font = '22px "Kart Text SemiBold"';
   ctx.fillText(`${NUMBER.format(current)} / ${NUMBER.format(needed)} XP`, x, y + 2);
   ctx.textAlign = 'right';
-  ctx.fillStyle = C.accent;
+  ctx.fillStyle = th.percent;
   ctx.font = '26px "Kart Text SemiBold"';
   const pct = `%${percent}`;
   ctx.fillText(pct, x + w, y + 4);
@@ -354,8 +382,8 @@ function xpBar(ctx, x, y, w, {level, current, needed, percent}) {
   const segW = (w - pad * 2 - gap * (SEGMENTS - 1)) / SEGMENTS;
   const filled = (current / needed) * SEGMENTS;
   const green = ctx.createLinearGradient(x, 0, x + w, 0);
-  green.addColorStop(0, '#3fbf74');
-  green.addColorStop(1, '#a6f0c5');
+  green.addColorStop(0, th.bar[0]);
+  green.addColorStop(1, th.bar[1]);
   for (let i = 0; i < SEGMENTS; i++) {
     const sx = x + pad + i * (segW + gap);
     const sy = top + pad;
@@ -421,12 +449,13 @@ export async function renderCard({name, username, avatar, account, stats, skin, 
   // Rozetin arkası iki katman: kartın tamamına yayılan ışık hüzmeleri ve rozetin çevresinde yarım ton noktalar.
   const bx = 1010;
   const by = 182;
-  sunburst(ctx, bx, by);
-  halftone(ctx, cx, cy, cw, ch, bx, by);
+  const th = themeFor(stats.level);
+  sunburst(ctx, bx, by, th);
+  halftone(ctx, cx, cy, cw, ch, bx, by, th);
   // Rozetin çevresinde yeşil parıltı
   const glow = ctx.createRadialGradient(bx, by, 100, bx, by, 230);
-  glow.addColorStop(0, 'rgba(70,210,130,0.35)');
-  glow.addColorStop(1, 'rgba(70,210,130,0)');
+  glow.addColorStop(0, `rgba(${th.rgb},0.3)`);
+  glow.addColorStop(1, `rgba(${th.rgb},0)`);
   ctx.fillStyle = glow;
   ctx.fillRect(bx - 240, by - 240, 480, 480);
   ctx.restore();
@@ -488,13 +517,13 @@ export async function renderCard({name, username, avatar, account, stats, skin, 
   ctx.fillText(`${DATE.format(new Date(account.savedAt ?? Date.now()))} tarihinde /account ile bağlandı`, 348, 336);
 
   // XP barı
-  xpBar(ctx, 330, 384, 818, stats);
+  xpBar(ctx, 330, 384, 818, stats, th);
 
   // Sağ: sekizgen seviye rozeti
   ctx.save();
   ctx.translate(bx, by);
   ctx.scale(0.84, 0.84);
-  levelBadge(ctx, 0, 0);
+  levelBadge(ctx, 0, 0, th);
   ctx.restore();
   // Rakam ölçeklenmeden çizilir; ölçekli çizimde pikseller arasında ince çizgiler kalıyordu.
   pixelNumber(ctx, stats.level, bx, by + 13, 126, 10);

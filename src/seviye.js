@@ -3,7 +3,7 @@ import {fileURLToPath} from 'node:url';
 
 /**
  * Mesajla XP: kişi dakikada en fazla bir kez 15-25 XP kazanır (art arda yazmak XP'yi şişirmez); mesaj sayısı her mesajda artar.
- * Seviye L'den L+1'e geçmek için L × 400 XP gerekir (seviye 6 → 7: 2.400 XP).
+ * Seviye 0'dan başlanır; L'den L+1'e geçmek için 1.500 + L × 150 XP gerekir (seviye 4 → 5: 2.100, seviye 6 → 7: 2.400 XP).
  * Kayıtlar veri/seviye.json'da (git'te değil, güncellemede silinmez).
  */
 const DIR = fileURLToPath(new URL('../veri/', import.meta.url));
@@ -11,17 +11,19 @@ const FILE = fileURLToPath(new URL('../veri/seviye.json', import.meta.url));
 const COOLDOWN_MS = 60_000;
 const XP_MIN = 15;
 const XP_MAX = 25;
-export const XP_PER_LEVEL = 400;
+const BASE_XP = 1_500;
+const XP_PER_LEVEL = 150;
+const neededFor = (level) => BASE_XP + level * XP_PER_LEVEL;
 
 /** Toplam XP'den seviye bilgisi: {level, current (bu seviyede toplanan), needed (sonraki seviyeye gereken), percent}. */
 export function levelInfo(xp) {
-  let level = 1;
+  let level = 0;
   let rest = Math.max(0, Math.floor(xp));
-  while (rest >= level * XP_PER_LEVEL) {
-    rest -= level * XP_PER_LEVEL;
+  while (rest >= neededFor(level)) {
+    rest -= neededFor(level);
     level++;
   }
-  const needed = level * XP_PER_LEVEL;
+  const needed = neededFor(level);
   return {level, current: rest, needed, percent: Math.floor((rest / needed) * 100)};
 }
 

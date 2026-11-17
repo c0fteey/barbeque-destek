@@ -16,7 +16,7 @@ Botun sunucuda **Mesajları Yönet**, **Üyelere zaman aşımı uygula**, **Üye
 - **`/account nick:<ad>`**: kişi Minecraft adını kaydeder. Ad Mojang'da aranır, yoksa kaydedilmez. Kayıtlar `veri/minecraft.json`'da (git'te değil).
 - **`/profil [kullanici]`**: kayıtlı hesabın skini Mojang'dan alınır (`@magicyan/minecraft`), 1200×500 bir kart çizilip kanala atılır. Solda skin 3D, sabit pozda; sağda ad, Minecraft adı, model ve skinin yüzü.
 - 3D çizim `src/minecraft/render3d.js`'te, tarayıcı ya da ekran kartı gerekmez. Ölçüler skinview3d ile aynı olduğu için skin editöründe ayarlanan poz kartta da aynı görünür. Poz `POSE` sabitinde (editördeki **Taslak 1**). Değiştirmek için editörde **Pozu kopyala** ile aldığın metni oraya yapıştır.
-- **Seviye:** her mesaj XP kazandırır (kişi başı dakikada en fazla bir kez, 15-25 XP). Seviye L'den L+1'e geçmek L × 400 XP ister. Kartta sağda sekizgen seviye rozeti, altta XP barı ve mesaj sayısı görünür. Kayıtlar `veri/seviye.json`'da (git'te değil).
+- **Seviye:** her mesaj XP kazandırır (kişi başı dakikada en fazla bir kez, 15-25 XP). Seviye 0'dan başlar; L'den L+1'e geçmek 1.500 + L × 150 XP ister. Kartta sağda sekizgen seviye rozeti, altta XP barı ve mesaj sayısı görünür; seviye 0-4 gri, 5 ve üstü yeşil. Kayıtlar `veri/seviye.json`'da (git'te değil).
 - Komutlar bot her açıldığında Micup'a kaydedilir.
 
 ## Çalıştırma
