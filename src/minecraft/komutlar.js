@@ -24,7 +24,7 @@ export const COMMANDS = [
 
 const whisper = (content) => ({content, flags: MessageFlags.Ephemeral, allowedMentions: {parse: []}});
 
-export function createMinecraft() {
+export function createMinecraft({levels}) {
   const accounts = createAccounts();
   // Micup aynı etkileşimi iki kez gönderebiliyor; ikincisi yok sayılır.
   const seen = new Set();
@@ -79,6 +79,7 @@ export function createMinecraft() {
       username: user.username,
       avatar: await fetchAvatar(user.displayAvatarURL?.({extension: 'png', size: 256})),
       account,
+      stats: levels.get(user.id),
       skin: await readSkin(skinData.png),
       slim: skinData.slim,
     });
