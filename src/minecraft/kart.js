@@ -17,7 +17,6 @@ const C = {
   frameDots: 'rgba(255,255,255,0.10)',
   card: '#151b27',
   cardEdge: '#0b0f17',
-  glow: 'rgba(84,214,140,0.16)',
   text: '#f2f5fb',
   muted: '#8f9ab0',
   chip: '#232b3b',
@@ -213,51 +212,106 @@ function pixelNumber(ctx, text, cx, cy, maxWidth, maxCell) {
   each((x, y) => ctx.fillRect(x, y, cell, cell));
 }
 
-/** Sağdaki sekizgen seviye rozeti: açık yeşil kenar, koyu yeşil iç, "SEVİYE" ve piksel numara. */
-function levelBadge(ctx, cx, cy, level) {
+const RAYS = 22;
+const onRay = (angle) => Math.floor(((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI / RAYS)) % 2 === 0;
+
+/** Rozet merkezinden kartın tamamına yayılan ışık hüzmeleri: yakında yeşil, uzakta soluk gri. */
+function sunburst(ctx, x, y) {
+  const light = ctx.createRadialGradient(x, y, 0, x, y, 1000);
+  light.addColorStop(0, 'rgba(90,210,140,0.20)');
+  light.addColorStop(0.45, 'rgba(110,160,140,0.08)');
+  light.addColorStop(1, 'rgba(130,140,160,0.05)');
+  ctx.fillStyle = light;
+  for (let k = 0; k < RAYS; k++) {
+    const a = (k * Math.PI * 2) / RAYS;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.arc(x, y, 1100, a, a + Math.PI / RAYS);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/**
+ * Rozetin çevresinde yarım ton noktalar: rozete yaklaştıkça büyür ve parlar, uzaklaştıkça söner.
+ * Hüzmenin üstüne düşen noktalar daha parlaktır; hüzmeler arasında da nokta vardır.
+ */
+function halftone(ctx, left, top, width, height, x, y) {
+  const STEP = 15;
+  const REACH = 540;
+  for (let row = 0, py = top + STEP / 2; py < top + height; row++, py += STEP)
+    // Sıralar yarım adım kaydırılır (görseldeki gibi çapraz dizilim).
+    for (let px = left + STEP / 2 + (row % 2) * (STEP / 2); px < left + width; px += STEP) {
+      const t = Math.hypot(px - x, py - y) / REACH;
+      if (t >= 1) continue;
+      const near = 1 - t;
+      const size = 1 + 3.2 * near ** 0.9;
+      const lit = onRay(Math.atan2(py - y, px - x));
+      const alpha = (lit ? 0.62 : 0.4) * near ** 1.3;
+      if (alpha < 0.03) continue;
+      ctx.fillStyle = `rgba(95,220,145,${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.moveTo(px, py - size);
+      ctx.lineTo(px + size, py);
+      ctx.lineTo(px, py + size);
+      ctx.lineTo(px - size, py);
+      ctx.closePath();
+      ctx.fill();
+    }
+}
+
+/** Sağdaki sekizgen seviye rozeti: gölge, açık yeşil kalın kenar, içte koyu yeşil hüzmeler ve "SEVİYE" (numara ayrıca çizilir). */
+function levelBadge(ctx, cx, cy) {
+  // Alt gölge
+  octagon(ctx, cx + 4, cy + 12, 140);
+  ctx.fillStyle = 'rgba(5,10,15,0.75)';
+  ctx.fill();
+  // Siyah dış çizgi ve yeşil kenar (üstü açık, altı koyu)
   octagon(ctx, cx, cy, 140);
   ctx.fillStyle = '#0b0f17';
   ctx.fill();
   const rim = ctx.createLinearGradient(cx, cy - 132, cx, cy + 132);
-  rim.addColorStop(0, '#9af2bf');
-  rim.addColorStop(1, '#2fae63');
-  octagon(ctx, cx, cy, 132);
+  rim.addColorStop(0, '#8eeab4');
+  rim.addColorStop(0.5, '#4fd28a');
+  rim.addColorStop(1, '#2ea862');
+  octagon(ctx, cx, cy, 133);
   ctx.fillStyle = rim;
   ctx.fill();
-  octagon(ctx, cx, cy, 116);
+  // Kenarın iç tarafında ince açık şerit
+  octagon(ctx, cx, cy, 126);
+  ctx.strokeStyle = 'rgba(210,255,228,0.55)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  // İç siyah çizgi
+  octagon(ctx, cx, cy, 113);
   ctx.fillStyle = '#0b0f17';
   ctx.fill();
-  octagon(ctx, cx, cy, 111);
-  ctx.fillStyle = '#2a8a52';
-  ctx.fill();
-  const inside = ctx.createRadialGradient(cx, cy - 10, 10, cx, cy, 110);
-  inside.addColorStop(0, '#1f6b40');
-  inside.addColorStop(1, '#123d26');
-  octagon(ctx, cx, cy, 104);
+  // İç: koyu yeşil zemin ve merkezden çıkan hafif hüzmeler (nokta yok)
+  const inside = ctx.createRadialGradient(cx, cy, 10, cx, cy, 110);
+  inside.addColorStop(0, '#20623d');
+  inside.addColorStop(1, '#17482d');
+  octagon(ctx, cx, cy, 107);
   ctx.fillStyle = inside;
   ctx.fill();
-  // İçte merkezden dışa doğru sönen nokta deseni
   ctx.save();
-  octagon(ctx, cx, cy, 104);
+  octagon(ctx, cx, cy, 107);
   ctx.clip();
-  for (let y = cy - 104; y < cy + 104; y += 10)
-    for (let x = cx - 104; x < cx + 104; x += 10) {
-      const d = Math.hypot(x + 5 - cx, y + 5 - cy) / 104;
-      const alpha = 0.22 - d * 0.18;
-      if (alpha <= 0) continue;
-      ctx.fillStyle = `rgba(150,240,190,${alpha})`;
-      ctx.beginPath();
-      ctx.arc(x + 5, y + 5, 2.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
+  ctx.fillStyle = 'rgba(0,0,0,0.14)';
+  for (let k = 0; k < 24; k++) {
+    const a = (k * Math.PI * 2) / 24;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, 160, a, a + Math.PI / 24);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.restore();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#b9f5d2';
+  ctx.fillStyle = '#a9eec6';
   ctx.font = '19px "Kart Text SemiBold"';
-  ctx.fillText('SEVİYE', cx, cy - 52);
+  ctx.fillText('SEVİYE', cx, cy - 50);
   ctx.textAlign = 'left';
-  pixelNumber(ctx, level, cx, cy + 14, 150, 12);
 }
 
 /** Türkçe yönelme eki: 7'ye, 6'ya, 10'a, 9'a, 100'e. */
@@ -364,23 +418,17 @@ export async function renderCard({name, username, avatar, account, stats, skin, 
   ctx.save();
   roundRect(ctx, cx, cy, cw, ch, 30);
   ctx.clip();
-  // Sağdaki rozetin arkasında yeşil ışık hüzmeleri
+  // Rozetin arkası iki katman: kartın tamamına yayılan ışık hüzmeleri ve rozetin çevresinde yarım ton noktalar.
   const bx = 1010;
   const by = 182;
-  ctx.fillStyle = C.glow;
-  for (let k = 0; k < 18; k++) {
-    const a = (k * Math.PI * 2) / 18;
-    ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.arc(bx, by, 900, a, a + Math.PI / 36);
-    ctx.closePath();
-    ctx.fill();
-  }
-  const fade = ctx.createLinearGradient(cx, 0, cx + 700, 0);
-  fade.addColorStop(0, C.card);
-  fade.addColorStop(1, 'rgba(21,27,39,0)');
-  ctx.fillStyle = fade;
-  ctx.fillRect(cx, cy, 700, ch);
+  sunburst(ctx, bx, by);
+  halftone(ctx, cx, cy, cw, ch, bx, by);
+  // Rozetin çevresinde yeşil parıltı
+  const glow = ctx.createRadialGradient(bx, by, 100, bx, by, 230);
+  glow.addColorStop(0, 'rgba(70,210,130,0.35)');
+  glow.addColorStop(1, 'rgba(70,210,130,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(bx - 240, by - 240, 480, 480);
   ctx.restore();
   roundRect(ctx, cx, cy, cw, ch, 30);
   ctx.lineWidth = 5;
@@ -443,7 +491,13 @@ export async function renderCard({name, username, avatar, account, stats, skin, 
   xpBar(ctx, 330, 384, 818, stats);
 
   // Sağ: sekizgen seviye rozeti
-  levelBadge(ctx, bx, by, stats.level);
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.scale(0.84, 0.84);
+  levelBadge(ctx, 0, 0);
+  ctx.restore();
+  // Rakam ölçeklenmeden çizilir; ölçekli çizimde pikseller arasında ince çizgiler kalıyordu.
+  pixelNumber(ctx, stats.level, bx, by + 13, 126, 10);
 
   return canvas.encode('png');
 }
