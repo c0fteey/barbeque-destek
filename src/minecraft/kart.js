@@ -159,9 +159,8 @@ function skinPanel(ctx, x, y, w, h, skin, slim) {
   ctx.arc(0, 0, 1, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
-  // Skin 2 kat çözünürlükte çizilip küçültülür (kenarlar yumuşak olsun).
-  const render = renderSkin(skin, {width: w * 2, height: h * 2, slim});
-  ctx.drawImage(render, x, y, w, h);
+  // Çizici kendi içinde büyük çizip küçültür (kenarlar yumuşak); burada panel boyutunda alınır.
+  ctx.drawImage(renderSkin(skin, {width: w, height: h, slim}), x, y);
   ctx.restore();
   roundRect(ctx, x, y, w, h, 20);
   ctx.lineWidth = 4;

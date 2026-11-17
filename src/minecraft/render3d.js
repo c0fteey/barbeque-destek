@@ -67,7 +67,8 @@ function faces([u, v], [w, h, d], [bw, bh, bd]) {
     {rect: [u, v + d, d, h], o: [-X, Y, -Z], a: [0, 0, cz], b: [0, -cy, 0], n: [-1, 0, 0]},
     {rect: [u + d + w, v + d, d, h], o: [X, Y, Z], a: [0, 0, -cz], b: [0, -cy, 0], n: [1, 0, 0]},
     {rect: [u + d, v, w, d], o: [-X, Y, -Z], a: [cx, 0, 0], b: [0, 0, cz], n: [0, 1, 0]},
-    {rect: [u + d + w, v, w, d], o: [-X, -Y, Z], a: [cx, 0, 0], b: [0, 0, -cz], n: [0, -1, 0]},
+    // Alt yüz: dokunun üst satırı arkaya, alt satırı öne denk gelir (three.js BoxGeometry + skinview3d UV'leri).
+    {rect: [u + d + w, v, w, d], o: [-X, -Y, -Z], a: [cx, 0, 0], b: [0, 0, cz], n: [0, -1, 0]},
   ];
 }
 
@@ -160,7 +161,8 @@ export function renderSkin(skin, {width, height, slim = false, pose = POSE} = {}
         const facing = dot(normal, sub(eye, center)) > 0;
         // İç katman yalnızca dışa bakan yüzleriyle, dış katman iki yüzüyle çizilir (skinview3d'deki gibi).
         if (!facing && layer === 'inner') continue;
-        const shade = 0.6 + 0.4 * Math.max(0, dot(facing ? normal : mul(normal, -1), light));
+        // Editördeki gibi neredeyse düz ışık; yönler hafifçe ayrışsın diye küçük bir yönlü pay.
+        const shade = Math.min(1, 0.84 + 0.16 * Math.max(0, dot(facing ? normal : mul(normal, -1), light)));
         const [tu, tv, cols, rows] = face.rect;
         for (let r = 0; r < rows; r++)
           for (let c = 0; c < cols; c++) {
@@ -168,29 +170,87 @@ export function renderSkin(skin, {width, height, slim = false, pose = POSE} = {}
             if (pixels[i + 3] < 16) continue;
             const corner = (dc, dr) => project(toWorld(chain, add(face.o, add(mul(face.a, c + dc), mul(face.b, r + dr)))));
             const pts = [corner(0, 0), corner(1, 0), corner(1, 1), corner(0, 1)];
-            const depth = (pts[0][2] + pts[1][2] + pts[2][2] + pts[3][2]) / 4 - (layer === 'outer' ? 0.05 : 0);
-            const color = `rgb(${Math.round(pixels[i] * shade)},${Math.round(pixels[i + 1] * shade)},${Math.round(pixels[i + 2] * shade)})`;
-            quads.push({pts, depth, color});
+            const color = [pixels[i] * shade, pixels[i + 1] * shade, pixels[i + 2] * shade];
+            quads.push({pts, color});
           }
       }
     }
   }
 
-  quads.sort((a, b) => b.depth - a.depth);
+  // Derinlik tamponlu çizim (WebGL'deki gibi): her ekran pikselinde kameraya en yakın yüzey kalır.
+  // SS kat büyük çizilip küçültülür, kenarlar yumuşar.
+  const SS = 3;
+  const W = width * SS;
+  const H = height * SS;
+  const depth = new Float32Array(W * H);
+  const color = new Float32Array(W * H * 3);
+  const filled = new Uint8Array(W * H);
+  const scale = (p) => [p[0] * SS, p[1] * SS, 1 / p[2]];
+  for (const q of quads) {
+    const [a, b, c, d] = q.pts.map(scale);
+    if (a[2] <= 0 || b[2] <= 0 || c[2] <= 0 || d[2] <= 0) continue;
+    triangle(a, b, c, q.color);
+    triangle(a, c, d, q.color);
+  }
+
+  function triangle(p0, p1, p2, rgb) {
+    const area = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p1[1] - p0[1]) * (p2[0] - p0[0]);
+    if (Math.abs(area) < 1e-9) return;
+    const minX = Math.max(0, Math.floor(Math.min(p0[0], p1[0], p2[0])));
+    const maxX = Math.min(W - 1, Math.ceil(Math.max(p0[0], p1[0], p2[0])));
+    const minY = Math.max(0, Math.floor(Math.min(p0[1], p1[1], p2[1])));
+    const maxY = Math.min(H - 1, Math.ceil(Math.max(p0[1], p1[1], p2[1])));
+    const inv = 1 / area;
+    // Ortak kenardaki pikseller iki üçgene de girer (aynı yüzün parçaları), böylece aralarında boşluk kalmaz.
+    const eps = -1e-6;
+    for (let y = minY; y <= maxY; y++) {
+      const py = y + 0.5;
+      for (let x = minX; x <= maxX; x++) {
+        const px = x + 0.5;
+        const w0 = ((p2[0] - p1[0]) * (py - p1[1]) - (p2[1] - p1[1]) * (px - p1[0])) * inv;
+        const w1 = ((p0[0] - p2[0]) * (py - p2[1]) - (p0[1] - p2[1]) * (px - p2[0])) * inv;
+        const w2 = 1 - w0 - w1;
+        if (w0 < eps || w1 < eps || w2 < eps) continue;
+        // 1/z ekranda doğrusal değişir; büyük olan daha yakındır.
+        const iz = w0 * p0[2] + w1 * p1[2] + w2 * p2[2];
+        const k = y * W + x;
+        if (iz <= depth[k]) continue;
+        depth[k] = iz;
+        filled[k] = 1;
+        color[k * 3] = rgb[0];
+        color[k * 3 + 1] = rgb[1];
+        color[k * 3 + 2] = rgb[2];
+      }
+    }
+  }
+
+  // Küçültme: her çıktı pikseli SS×SS alt pikselin ortalaması (boş alt pikseller saydam sayılır).
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = Math.max(0.6, width / 500);
-  for (const q of quads) {
-    ctx.beginPath();
-    ctx.moveTo(q.pts[0][0], q.pts[0][1]);
-    for (let k = 1; k < 4; k++) ctx.lineTo(q.pts[k][0], q.pts[k][1]);
-    ctx.closePath();
-    ctx.fillStyle = q.color;
-    ctx.strokeStyle = q.color;
-    ctx.fill();
-    // İnce kenar çizgisi pikseller arasındaki saç teli boşlukları kapatır.
-    ctx.stroke();
-  }
+  const out = ctx.createImageData(width, height);
+  const n = SS * SS;
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++) {
+      let r = 0;
+      let g = 0;
+      let bl = 0;
+      let count = 0;
+      for (let sy = 0; sy < SS; sy++)
+        for (let sx = 0; sx < SS; sx++) {
+          const k = (y * SS + sy) * W + x * SS + sx;
+          if (!filled[k]) continue;
+          r += color[k * 3];
+          g += color[k * 3 + 1];
+          bl += color[k * 3 + 2];
+          count++;
+        }
+      if (!count) continue;
+      const o = (y * width + x) * 4;
+      out.data[o] = r / count;
+      out.data[o + 1] = g / count;
+      out.data[o + 2] = bl / count;
+      out.data[o + 3] = (255 * count) / n;
+    }
+  ctx.putImageData(out, 0, 0);
   return canvas;
 }
