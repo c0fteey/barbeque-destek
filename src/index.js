@@ -1,9 +1,10 @@
 import {readFileSync} from 'node:fs';
-import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits} from 'discord.js';
+import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits, Routes} from 'discord.js';
 import {findJoined, findLink, findProfanity, loadWords} from './filters.js';
 import {createStrikes} from './ihlaller.js';
 import {createGuildNotices} from './sunucuBildirimi.js';
-import {createMinecraft} from './minecraft/komutlar.js';
+import {COMMANDS as MINECRAFT_COMMANDS, createMinecraft} from './minecraft/komutlar.js';
+import {COMMANDS as SUPPORT_COMMANDS, createSupport} from './destek.js';
 import {createLevels} from './seviye.js';
 
 // Botun yazdığı bütün metinler ve susturma süresi src/mesajlar.json'da; düzenlemek için yalnızca o dosya.
@@ -313,9 +314,24 @@ client.on(Events.MessageCreate, (message) => levels.onMessage(message));
 // Minecraft: /account ile ad kaydı, /profil ile 3D skinli kart (src/minecraft/).
 const minecraft = createMinecraft({levels});
 client.on(Events.InteractionCreate, (interaction) => minecraft.handle(interaction));
+// Destek (ticket) sistemi: /destek-kur ile ayarlanır, butonlu panelden açılır (src/destek.js).
+const support = createSupport({text: TEXT, fill});
+client.on(Events.InteractionCreate, (interaction) => support.handle(interaction));
+client.on(Events.ChannelDelete, (channel) => support.onChannelDelete(channel));
+
+/** Bütün slash komutları tek seferde kaydedilir (ayrı ayrı kaydedilirse sonuncusu öncekileri siler). */
+async function registerCommands(ready) {
+  const commands = [...MINECRAFT_COMMANDS, ...SUPPORT_COMMANDS];
+  try {
+    await ready.rest.put(Routes.applicationCommands(ready.application.id), {body: commands});
+    console.log(`Slash komutları kaydedildi: ${commands.map((c) => `/${c.name}`).join(', ')}.`);
+  } catch (error) {
+    console.error('Slash komutları kaydedilemedi:', error.message);
+  }
+}
 client.once(Events.ClientReady, (ready) => {
   console.log(`Barbeque Destek hazır: ${ready.user.username} (${ready.guilds.cache.size} sunucu).`);
-  minecraft.register(ready);
+  registerCommands(ready);
   // Ajan bekleyen sunucu bildirimlerini bunu görünce gönderir.
   if (process.send && process.connected) process.send({type: 'ready'});
 });

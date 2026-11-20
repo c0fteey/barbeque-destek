@@ -1,4 +1,4 @@
-import {ApplicationCommandOptionType, MessageFlags, Routes} from 'discord.js';
+import {ApplicationCommandOptionType, MessageFlags} from 'discord.js';
 import {createAccounts} from './hesaplar.js';
 import {fetchAvatar, renderCard} from './kart.js';
 import {fetchSkin, findAccount, NICK_PATTERN} from './mojang.js';
@@ -90,16 +90,6 @@ export function createMinecraft({levels}) {
   }
 
   return {
-    /** Komutları Micup'a kaydeder (bot her açıldığında). */
-    async register(client) {
-      try {
-        await client.rest.put(Routes.applicationCommands(client.application.id), {body: COMMANDS});
-        console.log(`Slash komutları kaydedildi: ${COMMANDS.map((c) => `/${c.name}`).join(', ')}.`);
-      } catch (error) {
-        console.error('Slash komutları kaydedilemedi:', error.message);
-      }
-    },
-
     async handle(interaction) {
       if (!interaction.isChatInputCommand?.()) return;
       if (seen.has(interaction.id)) return;
