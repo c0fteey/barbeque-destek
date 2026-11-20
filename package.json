@@ -1,7 +1,7 @@
 {
   "name": "barbeque-destek",
   "version": "0.1.0",
-  "description": "Barbeque destek sunucusu botu: link ve küfür engeli (guard), Minecraft profil kartı",
+  "description": "Barbeque destek sunucusu botu: link ve küfür engeli (guard), destek (ticket) sistemi",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,7 +12,6 @@
     "start:env": "node --env-file=.env src/index.js"
   },
   "dependencies": {
-    "@magicyan/minecraft": "^0.0.4",
     "@napi-rs/canvas": "^0.1.100",
     "discord.js": "^14.28.1"
   }

@@ -3,7 +3,6 @@ import {Client, Events, GatewayIntentBits, Options, PermissionFlagsBits, Routes}
 import {findJoined, findLink, findProfanity, loadWords} from './filters.js';
 import {createStrikes} from './ihlaller.js';
 import {createGuildNotices} from './sunucuBildirimi.js';
-import {COMMANDS as MINECRAFT_COMMANDS, createMinecraft} from './minecraft/komutlar.js';
 import {COMMANDS as SUPPORT_COMMANDS, createSupport} from './destek.js';
 import {createLevels} from './seviye.js';
 
@@ -308,20 +307,17 @@ if (process.send) {
     }
   });
 }
-// Mesajla XP ve seviye (src/seviye.js); /profil kartında görünür.
+// Mesajla XP ve seviye (src/seviye.js); şimdilik yalnızca sayılır, gösteren komut yok.
 const levels = createLevels();
 client.on(Events.MessageCreate, (message) => levels.onMessage(message));
-// Minecraft: /account ile ad kaydı, /profil ile 3D skinli kart (src/minecraft/).
-const minecraft = createMinecraft({levels});
-client.on(Events.InteractionCreate, (interaction) => minecraft.handle(interaction));
 // Destek (ticket) sistemi: /destek-kur ile ayarlanır, butonlu panelden açılır (src/destek.js).
 const support = createSupport({text: TEXT, fill});
 client.on(Events.InteractionCreate, (interaction) => support.handle(interaction));
 client.on(Events.ChannelDelete, (channel) => support.onChannelDelete(channel));
 
-/** Bütün slash komutları tek seferde kaydedilir (ayrı ayrı kaydedilirse sonuncusu öncekileri siler). */
+/** Bütün slash komutları tek seferde kaydedilir; listede olmayan eski komutlar (ör. /account, /profil) Micup'tan silinir. */
 async function registerCommands(ready) {
-  const commands = [...MINECRAFT_COMMANDS, ...SUPPORT_COMMANDS];
+  const commands = [...SUPPORT_COMMANDS];
   try {
     await ready.rest.put(Routes.applicationCommands(ready.application.id), {body: commands});
     console.log(`Slash komutları kaydedildi: ${commands.map((c) => `/${c.name}`).join(', ')}.`);

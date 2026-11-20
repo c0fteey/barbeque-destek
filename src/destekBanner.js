@@ -1,6 +1,5 @@
 import {fileURLToPath} from 'node:url';
-import {createCanvas, GlobalFonts} from '@napi-rs/canvas';
-import {fetchAvatar} from './minecraft/kart.js';
+import {createCanvas, GlobalFonts, loadImage} from '@napi-rs/canvas';
 
 /**
  * Destek panelinin 16:9 banner'ı (1280×720): solda Barbeque logosu (botun profil fotoğrafı), sağda başlık ve alt yazı.
@@ -9,6 +8,18 @@ import {fetchAvatar} from './minecraft/kart.js';
 const font = (file) => fileURLToPath(new URL(`../assets/fonts/${file}`, import.meta.url));
 GlobalFonts.registerFromPath(font('ArchivoBlack-Regular.ttf'), 'Banner Display');
 GlobalFonts.registerFromPath(font('Poppins-Medium.ttf'), 'Banner Text');
+
+/** Logoyu indirir; alınamazsa null (banner logosuz çizilir). */
+async function fetchAvatar(url) {
+  if (!url) return null;
+  try {
+    const response = await fetch(url, {signal: AbortSignal.timeout(4_000)});
+    if (!response.ok) return null;
+    return await loadImage(Buffer.from(await response.arrayBuffer()));
+  } catch {
+    return null;
+  }
+}
 
 const W = 1280;
 const H = 720;
