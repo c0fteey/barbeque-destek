@@ -1,18 +1,14 @@
 {
   "name": "barbeque-destek",
-  "version": "0.1.0",
-  "description": "Barbeque destek sunucusu botu: link ve küfür engeli (guard), destek (ticket) sistemi",
+  "version": "1.0.0",
+  "description": "Barbeque destek sunucusu botu (Rust): link ve küfür engeli (guard), destek (ticket) sistemi",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "start:env": "node --env-file=.env src/index.js"
-  },
-  "dependencies": {
-    "@napi-rs/canvas": "^0.1.100",
-    "discord.js": "^14.28.1"
+    "start": "node baslat.js",
+    "postinstall": "node -e \"require('node:fs').mkdirSync('node_modules',{recursive:true})\""
   }
 }

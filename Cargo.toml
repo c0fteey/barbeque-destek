@@ -1,0 +1,25 @@
+[package]
+name = "barbeque-destek"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+base64 = "0.23.1"
+futures-util = { version = "0.3.34", default-features = false }
+rand = "0.10.4"
+regex = "1.13.2"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider", "multipart"] }
+resvg = { version = "0.50.0", default-features = false, features = ["text", "raster-images"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "sync", "time", "io-util", "io-std", "signal"] }
+twilight-gateway = "0.16.0"
+unicode-normalization = "0.1.26"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+strip = true

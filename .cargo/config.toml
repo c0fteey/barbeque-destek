@@ -1,0 +1,3 @@
+# Windows exe'si Visual C++ çalışma zamanı DLL'ine bağımlı olmasın (VDS'te ayrıca kurulum gerekmesin).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
