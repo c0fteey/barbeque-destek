@@ -27,6 +27,8 @@ import {renderBanner} from './destekBanner.js';
  * Ticket içinde (açan kişi ya da yetkili; ekle/çıkar/üstlen yalnızca yetkili):
  *   /destek kapat [sebep]   /destek ekle kullanici   /destek cikar kullanici   /destek ustlen
  *
+ * Yasak (yetkili, her kanalda): /destek yasakla kullanici [sebep] [gun]   /destek yasak-kaldir kullanici   /destek yasaklilar
+ *
  * Ticket: kategoride "destek-0001" gibi özel kanal; yalnızca açan, yetkili roller ve bot görür.
  * Kapanınca bütün mesajların .txt dökümü açan kişiye özelden ve log kanalına gider, kanal silinir.
  * Ayarlar ve açık ticketlar veri/destek.json'da (git'te değil, güncellemede silinmez).
@@ -67,6 +69,10 @@ const DEFAULTS = {
   ticketDegil: 'Bu komut yalnızca bir destek kanalında kullanılabilir.',
   yetkiYok: 'Bunu yalnızca destek yetkilileri yapabilir.',
   kapatmaYetkiYok: 'Bu talebi yalnızca açan kişi ya da bir yetkili kapatabilir.',
+  yasakli: 'Destek talebi açman yasaklandı{bitis}.{sebep}',
+  yasaklandi: '🚫 {kullanici} destek talebi açmaktan yasaklandı{bitis}.{sebep}',
+  yasakKalkti: '✅ {kullanici} için destek talebi yasağı kaldırıldı.',
+  ozelYasak: '**{sunucu}** sunucusunda destek talebi açman yasaklandı{bitis}.{sebep}',
   logBaslik: '📁 Destek Talebi #{no} kapatıldı',
 };
 
@@ -155,6 +161,23 @@ export const COMMANDS = [
         options: [{type: ApplicationCommandOptionType.User, name: 'kullanici', description: 'Çıkarılacak üye', required: true}],
       },
       {type: ApplicationCommandOptionType.Subcommand, name: 'ustlen', description: 'Bu talebi üstlen'},
+      {
+        type: ApplicationCommandOptionType.Subcommand,
+        name: 'yasakla',
+        description: 'Bir üyenin destek talebi açmasını yasakla',
+        options: [
+          {type: ApplicationCommandOptionType.User, name: 'kullanici', description: 'Yasaklanacak üye', required: true},
+          {type: ApplicationCommandOptionType.String, name: 'sebep', description: 'Yasak sebebi', required: false, max_length: 300},
+          {type: ApplicationCommandOptionType.Integer, name: 'gun', description: 'Kaç gün (boş = süresiz)', required: false, min_value: 1, max_value: 3650},
+        ],
+      },
+      {
+        type: ApplicationCommandOptionType.Subcommand,
+        name: 'yasak-kaldir',
+        description: 'Destek talebi yasağını kaldır',
+        options: [{type: ApplicationCommandOptionType.User, name: 'kullanici', description: 'Yasağı kaldırılacak üye', required: true}],
+      },
+      {type: ApplicationCommandOptionType.Subcommand, name: 'yasaklilar', description: 'Destek talebi yasağı olanları listele'},
     ],
   },
 ];
@@ -209,6 +232,7 @@ export function createSupport({text = {}, fill}) {
     g.limit ??= 1;
     g.sayac ??= 0;
     g.ticketlar ??= {};
+    g.yasaklar ??= {};
     return g;
   };
 
@@ -341,6 +365,83 @@ export function createSupport({text = {}, fill}) {
     }
   }
 
+  // ---------- Yasak ----------
+
+  /** Süresi geçmemiş yasak; süresi geçmişse silinir. */
+  function activeBan(g, userId) {
+    const ban = g.yasaklar[userId];
+    if (!ban) return null;
+    if (ban.bitis && ban.bitis <= Date.now()) {
+      delete g.yasaklar[userId];
+      save();
+      return null;
+    }
+    return ban;
+  }
+
+  const banValues = (ban) => ({
+    bitis: ban.bitis ? ` (${date(ban.bitis)} tarihine kadar)` : ' (süresiz)',
+    sebep: ban.sebep ? ` Sebep: ${ban.sebep}` : '',
+  });
+
+  async function logTo(guild, g, content) {
+    if (!g.log) return;
+    const channel = guild.channels.cache.get(g.log) ?? (await guild.channels.fetch(g.log).catch(() => null));
+    await channel?.send?.({content, allowedMentions: {parse: []}}).catch(() => {});
+  }
+
+  async function banUser(interaction) {
+    const g = guildData(interaction.guildId);
+    if (!isStaff(interaction.member, g)) return interaction.reply(whisper(t('yetkiYok')));
+    const user = interaction.options.getUser('kullanici', true);
+    if (user.bot) return interaction.reply(whisper('Botlar zaten destek talebi açamaz.'));
+    const days = interaction.options.getInteger('gun');
+    const ban = {
+      sebep: interaction.options.getString('sebep')?.trim() || '',
+      yetkili: interaction.user.id,
+      tarih: Date.now(),
+      bitis: days ? Date.now() + days * 86_400_000 : null,
+    };
+    g.yasaklar[user.id] = ban;
+    save();
+    const values = {kullanici: `<@${user.id}>`, sunucu: interaction.guild.name, ...banValues(ban)};
+    await interaction.reply({content: t('yasaklandi', values), allowedMentions: {parse: []}});
+    await Promise.all([
+      user.send({content: t('ozelYasak', values), allowedMentions: {parse: []}}).catch(() => {}),
+      logTo(interaction.guild, g, `${t('yasaklandi', values)} · yetkili: <@${interaction.user.id}>`),
+    ]);
+    console.log(`Destek yasağı: ${user.username} (${user.id})${days ? `, ${days} gün` : ', süresiz'}`);
+  }
+
+  async function unbanUser(interaction) {
+    const g = guildData(interaction.guildId);
+    if (!isStaff(interaction.member, g)) return interaction.reply(whisper(t('yetkiYok')));
+    const user = interaction.options.getUser('kullanici', true);
+    if (!activeBan(g, user.id)) return interaction.reply(whisper('Bu üyenin destek talebi yasağı yok.'));
+    delete g.yasaklar[user.id];
+    save();
+    const text = t('yasakKalkti', {kullanici: `<@${user.id}>`});
+    await interaction.reply({content: text, allowedMentions: {parse: []}});
+    await logTo(interaction.guild, g, `${text} · yetkili: <@${interaction.user.id}>`);
+  }
+
+  async function listBans(interaction) {
+    const g = guildData(interaction.guildId);
+    if (!isStaff(interaction.member, g)) return interaction.reply(whisper(t('yetkiYok')));
+    const ids = Object.keys(g.yasaklar).filter((id) => activeBan(g, id));
+    const lines = ids.map((id) => {
+      const ban = g.yasaklar[id];
+      return `• <@${id}> · ${ban.bitis ? `${date(ban.bitis)} tarihine kadar` : 'süresiz'} · <@${ban.yetkili}>${ban.sebep ? ` · ${ban.sebep}` : ''}`;
+    });
+    let body = lines.join('\n') || 'Yasaklı kimse yok.';
+    if (body.length > 3900) body = `${body.slice(0, 3900)}\n…`;
+    await interaction.reply({
+      embeds: [new EmbedBuilder().setColor(COLOR).setTitle(`Destek yasakları (${ids.length})`).setDescription(body)],
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: {parse: []},
+    });
+  }
+
   // ---------- Açma ----------
 
   async function open(interaction) {
@@ -350,6 +451,8 @@ export function createSupport({text = {}, fill}) {
     const lockKey = `${guild.id}:${userId}`;
     if (opening.has(lockKey)) return interaction.reply(whisper('Talebin açılıyor, bir saniye...'));
     if (!g.kategori && !g.yetkiliRoller.length) return interaction.reply(whisper(t('kurulmamis')));
+    const ban = activeBan(g, userId);
+    if (ban) return interaction.reply(whisper(t('yasakli', banValues(ban))));
     prune(guild, g);
     const mine = Object.entries(g.ticketlar).filter(([, ticket]) => ticket.sahip === userId);
     if (mine.length >= g.limit) return interaction.reply(whisper(t('limitDolu', {kanallar: mine.map(([id]) => `<#${id}>`).join(', ')})));
@@ -605,6 +708,9 @@ export function createSupport({text = {}, fill}) {
         else if (sub === 'ekle') await addOrRemove(interaction, true);
         else if (sub === 'cikar') await addOrRemove(interaction, false);
         else if (sub === 'ustlen') await claim(interaction);
+        else if (sub === 'yasakla') await banUser(interaction);
+        else if (sub === 'yasak-kaldir') await unbanUser(interaction);
+        else if (sub === 'yasaklilar') await listBans(interaction);
       } catch (error) {
         console.error(`Destek etkileşimi çalışmadı (${interaction.customId ?? interaction.commandName}):`, error);
         const reply = {content: 'Bir şeyler ters gitti. Birazdan tekrar dene.', allowedMentions: {parse: []}};

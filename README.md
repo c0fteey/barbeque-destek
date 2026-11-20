@@ -17,6 +17,7 @@ Botun sunucuda **Mesajları Yönet**, **Üyelere zaman aşımı uygula**, **Üye
 - **Panel:** embed + 16:9 banner (solda botun profil fotoğrafı, sağda başlık; `src/destekBanner.js`) + **Destek Talebi Aç** butonu.
 - **Ticket:** kategoride `destek-0001` gibi özel kanal; yalnızca açan, yetkili roller ve bot görür. Açılışta kişi ve yetkili roller etiketlenir; **Üstlen** (yalnızca yetkili) ve **Kapat** butonları var.
 - **Ticket içinde:** `/destek kapat [sebep]`, `/destek ekle kullanici`, `/destek cikar kullanici`, `/destek ustlen`.
+- **Yasak** (yetkili, her kanalda): `/destek yasakla kullanici [sebep] [gun]` (gün boşsa süresiz), `/destek yasak-kaldir kullanici`, `/destek yasaklilar`. Yasaklı üye butona basınca sebep ve bitiş tarihi gösterilir; yasaklanana özelden haber gider, log kanalına yazılır.
 - **Kapanış:** onay sorulur; bütün mesajların `.txt` dökümü açan kişiye özelden ve log kanalına (özet embed'le) gider, kanal 5 sn sonra silinir. Kanal elle silinirse kayıt da düşer.
 - Metinler `src/destek.js` içindeki `DEFAULTS`'ta; `src/mesajlar.json`'a `"destek": {...}` ekleyip aynı anahtarlarla değiştirebilirsin.
 - Botun **Kanalları Yönet**, **İzinleri Yönet**, **Mesaj Geçmişini Oku** ve **Dosya Ekle** izni olmalı.
