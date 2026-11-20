@@ -1,0 +1,211 @@
+# Guard küfür listesi. Satır başına bir kelime; # ile başlayan satır yorumdur.
+# Sonu * ise kelime başı olarak eşleşir (orospu* → orospuçocuğu). Yıldızsızsa yalnızca kelimenin tamamı eşleşir.
+# Kısa kökleri yıldızsız yaz: "sik*" şikayet/sikke'yi, "göt*" götür'ü, "am*" ama'yı da silerdi.
+# Türkçe karaktersiz hali (amcık → amcik) ve harf tekrarı (amkkk) kendiliğinden yakalanır.
+# /.../ satırı regex'tir ve kelimenin İÇİNDE de arar (yapışık yazım: senisikerim). Ayrıntı en altta.
+
+# --- amk ailesi ---
+amk
+amq
+aq
+amına*
+amina*
+amınako*
+aminako*
+amcık*
+amcik*
+amcuk*
+amınoğlu*
+aminoglu*
+
+# --- sesli harfi atılmış kısaltmalar ---
+skm
+sktr
+sktir
+skrm
+skym
+skeym
+skerim
+sikm
+orsp*
+orsb*
+orosp*
+oç
+pç
+pzvnk
+pzvk
+pzv
+yvşk
+yvsk
+şrfsz
+srfsz
+şrfsiz
+amck
+amcq
+amcik*
+amuna*
+amunu*
+amınıza*
+aminiza*
+
+# --- s*k ailesi (kısa kök yıldızsız) ---
+sik
+sikik
+sikim
+sikiyim
+sikeyim
+sikerim
+siker
+sikem
+sikmek
+siktir*
+siktiğim*
+siktigim*
+sikiş*
+sikik*
+sikko
+sikerler
+sikeceğim
+sikecegim
+yarrak*
+yarak
+yarağ*
+yarram*
+taşak*
+tasak*
+daşşak*
+
+# --- hakaret ---
+orospu*
+orosbu*
+oruspu*
+kahpe*
+kaltak*
+pezevenk*
+pezo
+gavat*
+yavşak*
+yavsak*
+ibne*
+puşt*
+pust
+şerefsiz*
+serefsiz*
+piç
+piçler*
+piçlik*
+göt
+götveren*
+götoş*
+götlek*
+dalyarak*
+
+# --- İngilizce ---
+fuck*
+fck
+fuk
+motherfuck*
+shit*
+bitch*
+bastard*
+asshole*
+cunt*
+whore*
+slut*
+nigga*
+nigger*
+faggot*
+retard*
+
+# --- meme: çıplak "meme" ve "memeler" internet meme'i anlamında da kullanıldığı için serbest; müstehcen kullanımdaki
+# iyelik halleri engelli. "meme"nin kendisini de engellemek istersen alttaki satırların başına "meme" ve "memeler" ekle.
+memen
+memeni
+memene
+memenin
+memesi
+memesini
+memesine
+memelerin
+memelerini
+memelerine
+memelerim
+memelerimi
+memecik*
+
+# --- İngilizce / müstehcen ---
+# Tekrar eden harf teke indiği için "boob" (→ bob) gibi isimle çakışan kısa kelimeler eklenmedi.
+oppai
+hentai*
+ecchi
+ahegao
+porn
+porno
+pornos
+pornolar
+pornhub*
+p0rn
+nsfw
+onlyfans
+milf*
+dildo*
+blowjob*
+handjob*
+cumshot*
+cum
+horny
+nudes
+sex
+seggs
+segs
+boobs
+boobies
+tits
+titties
+pussy
+pussies
+dick
+dicks
+cock
+cocks
+penis
+vagina
+anal
+rape
+raped
+rapist
+wank*
+loli
+lolicon
+rule34
+stfu
+dumbass
+jackass
+hoe
+thot
+
+# --- Regex: başka kelimeye yapışık yazılan küfürler ---
+# Kelimenin herhangi bir yerinde aranır. Kelime sadeleştirilmiş haliyle gelir: küçük harf, rakam → harf (5 → s),
+# tekrar eden harf teke (yarrak → yarak). Türkçe harf farkı için [iı] [sş] [cç] [gğ] yaz.
+# Kısa ya da masum kelimelerin içinde geçebilecek desen yazma: /yarak/ "sayarak", "kayarak"ı da silerdi.
+# "sik" ailesinde yalnızca i (ı değil): "sıkıştır", "sıkıldım" masum.
+/sik(tir|erim|eyim|iyim|ecem|ecek|eriz|ermi|tiğ|tig|ilmi)/
+/am[iı]na?k(o|a)/
+/am[iı]n[iı]sik/
+/anan[iı]sik/
+/anas[iı]n[iı]sik/
+/orospu|orosbu|oruspu/
+/am[cç][iı]k/
+/pezevenk/
+/kahpe/
+/yav[sş]ak/
+/[sş]erefsiz/
+/ibne(ler|lik|sin)/
+/fuck/
+/motherf/
+
+# --- Cümle desenleri: kelimeler yan yana gelince küfür olan ifadeler ---
+# "cumle /.../" satırı mesajın TAMAMINDA aranır. Mesaj sadeleştirilmiş gelir: küçük harf, rakam → harf, tekrar eden
+# harf teke, işaretler boşluk ("Anana, HELELELE!" → "anana helele"). Çift harf tek yazılır: anne → ane. Kelime başı için (^| ) kullan ( Türkçe harfte çalışmaz).
+# Anne/bacı + fiil: "anana hele", "ananı koyayım", "anneni sik", "bacına sokayım". "Ananı gördüm", "anana söyle" masum kalır.
+cumle /(^| )(anan[aıi]?n?|anas[iı]n[aıi]|anen[eiı]n?|aneni|bac[iı]n[aıi]|avrad[iı]n[aıi]|avrat[iı]n[aıi]|am[iıu]n[aı]) (hele|koy[aıidm]|sok[aıitm]|sik|skm|bin(e|d[iıu]m| |$)|[cç]ak[aıit]|gir[eid])/
