@@ -44,7 +44,6 @@ const DEFAULTS = {
   bannerBaslik: 'DESTEK',
   bannerVurgu: 'MERKEZİ',
   bannerAltYazi: 'Sorun, soru ya da şikayet? Sana özel kanalda yetkililer yardımcı olsun.',
-  bannerEtiket: 'Aşağıdaki butona bas',
   acilisBaslik: 'Destek Talebi #{no}',
   acilisAciklama:
     'Merhaba {kisi}, destek talebin açıldı.\nSorununu ayrıntılı yaz; ekran görüntüsü varsa ekle. Bir yetkili birazdan seninle ilgilenecek.\n\nİşin bitince **Kapat** butonuna basabilirsin.',
@@ -78,7 +77,7 @@ const DEFAULTS = {
 
 const FILE = fileURLToPath(new URL('../veri/destek.json', import.meta.url));
 const DIR = fileURLToPath(new URL('../veri/', import.meta.url));
-const COLOR = 0xf28c28;
+const COLOR = 0xe0201e;
 const DELETE_AFTER_S = 5;
 const TRANSCRIPT_MAX_MESSAGES = 10_000;
 const MAX_LIMIT = 10;
@@ -332,7 +331,6 @@ export function createSupport({text = {}, fill}) {
         title: t('bannerBaslik'),
         accent: t('bannerVurgu'),
         subtitle: t('bannerAltYazi'),
-        tag: t('bannerEtiket'),
       }).catch((error) => {
         console.warn(`Destek banner'ı çizilemedi: ${error.message}`);
         return null;
