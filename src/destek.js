@@ -38,8 +38,11 @@ const DEFAULTS = {
   panelAciklama:
     'Barbeque ile ilgili bir sorun, soru ya da şikayetin mi var?\nAşağıdaki butona bas, sana özel bir destek kanalı açılsın. Yetkililer en kısa sürede ilgilenecek.',
   panelButon: 'Destek Talebi Aç',
-  bannerBaslik: 'BARBEQUE DESTEK',
-  bannerAltYazi: 'Bir sorunun mu var? Butona bas, sana özel destek kanalı açılsın.',
+  bannerUst: 'BARBEQUE',
+  bannerBaslik: 'DESTEK',
+  bannerVurgu: 'MERKEZİ',
+  bannerAltYazi: 'Sorun, soru ya da şikayet? Sana özel kanalda yetkililer yardımcı olsun.',
+  bannerEtiket: 'Aşağıdaki butona bas',
   acilisBaslik: 'Destek Talebi #{no}',
   acilisAciklama:
     'Merhaba {kisi}, destek talebin açıldı.\nSorununu ayrıntılı yaz; ekran görüntüsü varsa ekle. Bir yetkili birazdan seninle ilgilenecek.\n\nİşin bitince **Kapat** butonuna basabilirsin.',
@@ -241,6 +244,23 @@ export function createSupport({text = {}, fill}) {
       new ButtonBuilder().setCustomId('destek:kapat').setStyle(ButtonStyle.Danger).setEmoji('🔒').setLabel(t('butonKapat')),
     );
 
+  /** Yetkili rol eklenince/çıkarılınca açık ticket kanallarının izinleri de güncellenir. Güncellenen kanal sayısını döner. */
+  async function applyRoleToOpenTickets(guild, g, roleId, add) {
+    prune(guild, g);
+    const allow = Object.fromEntries([...TICKET_ALLOW, PermissionFlagsBits.ManageMessages].map((p) => [permName(p), true]));
+    let changed = 0;
+    for (const channelId of Object.keys(g.ticketlar)) {
+      const channel = guild.channels.cache.get(channelId);
+      if (!channel) continue;
+      const done = add ? channel.permissionOverwrites.edit(roleId, allow) : channel.permissionOverwrites.delete(roleId);
+      await done.then(
+        () => changed++,
+        (error) => console.warn(`Destek kanalı izni güncellenemedi (#${channelId}): ${error.message}`),
+      );
+    }
+    return changed;
+  }
+
   // ---------- Kurulum ----------
 
   async function setup(interaction) {
@@ -255,12 +275,14 @@ export function createSupport({text = {}, fill}) {
       const role = interaction.options.getRole('rol', true);
       if (!g.yetkiliRoller.includes(role.id)) g.yetkiliRoller.push(role.id);
       save();
-      await interaction.reply(whisper(`<@&${role.id}> yetkili olarak eklendi. Yeni açılan ticketları görecek.`));
+      const changed = await applyRoleToOpenTickets(interaction.guild, g, role.id, true);
+      await interaction.reply(whisper(`<@&${role.id}> yetkili olarak eklendi. Yeni ticketları ve açık ${changed} ticketı görecek.`));
     } else if (sub === 'yetkili-cikar') {
       const role = interaction.options.getRole('rol', true);
       g.yetkiliRoller = g.yetkiliRoller.filter((id) => id !== role.id);
       save();
-      await interaction.reply(whisper(`<@&${role.id}> yetkililerden çıkarıldı (açık ticketlardaki izni elle kaldırılmalı).`));
+      const changed = await applyRoleToOpenTickets(interaction.guild, g, role.id, false);
+      await interaction.reply(whisper(`<@&${role.id}> yetkililerden çıkarıldı; açık ${changed} ticketdan da izni kaldırıldı.`));
     } else if (sub === 'log') {
       const channel = interaction.options.getChannel('kanal', true);
       g.log = channel.id;
@@ -280,7 +302,14 @@ export function createSupport({text = {}, fill}) {
         .setImage('attachment://destek-banner.png');
       await interaction.deferReply({flags: MessageFlags.Ephemeral});
       // 16:9 banner: logo + başlık; çizilemezse panel banner'sız gider.
-      const banner = await renderBanner({logoUrl: logo(interaction.client), title: t('bannerBaslik'), subtitle: t('bannerAltYazi')}).catch((error) => {
+      const banner = await renderBanner({
+        logoUrl: logo(interaction.client),
+        top: t('bannerUst'),
+        title: t('bannerBaslik'),
+        accent: t('bannerVurgu'),
+        subtitle: t('bannerAltYazi'),
+        tag: t('bannerEtiket'),
+      }).catch((error) => {
         console.warn(`Destek banner'ı çizilemedi: ${error.message}`);
         return null;
       });
